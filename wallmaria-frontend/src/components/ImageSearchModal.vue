@@ -1,6 +1,6 @@
 <template>
-    <div v-if="isOpen" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center overflow-auto py-8">
-        <div class="modal-container bg-white rounded-lg p-5 shadow-xl relative" style="width: 600px;"> <!-- Set a specific width -->
+    <div v-if="isOpen" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center overflow-auto py-8" @click="close">
+        <div class="modal-container bg-white rounded-lg p-5 shadow-xl relative" style="width: 600px;" @click.stop> <!-- Set a specific width -->
             <div class="flex justify-between items-center pb-3">
                 <p class="text-2xl font-bold text-center flex-grow">Search any image with WallMaria</p>
                 <div class="cursor-pointer z-50" @click="close">
@@ -91,10 +91,10 @@ const handleFileUpload = (event: Event) => {
 };
 
 const removeImage = () => {
-  uploadedImageUrl.value = null;
-  if (fileInput.value) {
-    fileInput.value.value = ''; // Clear the value of the file input to allow the same file to be selected again
-  }
+    uploadedImageUrl.value = null;
+    if (fileInput.value) {
+        fileInput.value.value = ''; // Clear the value of the file input to allow the same file to be selected again
+    }
 };
 
 // Expose the isOpen ref so it can be controlled by the parent component
@@ -103,7 +103,7 @@ defineExpose({ isOpen });
   
 <style scoped>
 .modal-container {
-  margin-top: auto;
-  margin-bottom: auto;
+    margin-top: auto;
+    margin-bottom: auto;
 }
 </style>

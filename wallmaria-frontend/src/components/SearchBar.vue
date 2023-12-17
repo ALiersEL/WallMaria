@@ -8,8 +8,8 @@
             placeholder="Search WallMaria or type a URL"
         />
         <button
-            class="absolute top-1 right-3 flex items-center justify-center bg-no-repeat bg-center text-transparent w-8 h-8"
-            :style="{ backgroundImage: `url(${imageSearchIcon})` }"
+            class="absolute top-2.5 right-3 flex items-center justify-center bg-no-repeat bg-center text-transparent w-5 h-5"
+            :style="{ backgroundImage: `url(${imageSearchIcon})`, backgroundSize: 'cover' }"
             @click="openImageSearchModal"
             title="Search by image"
             >
@@ -24,7 +24,7 @@
   
 <script setup lang="ts">
 import { ref, Ref } from 'vue';
-import imageSearchIcon from '../assets/image-search-icon.svg';
+import imageSearchIcon from '../assets/image-search-icon.png';
 import ImageSearchModal from './ImageSearchModal.vue';
 
 interface ImageSearchModalInterface {
