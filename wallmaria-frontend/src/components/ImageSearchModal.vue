@@ -28,8 +28,8 @@
                 </div>
             </div>
             <div class="pt-3 flex justify-between">
-                <input type="text" placeholder="Paste image link" class="border-2 border-gray-200 rounded p-2 w-full">
-                <button class="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Search</button>
+                <input type="text" v-model="imageLink" placeholder="Paste image link" class="border-2 border-gray-200 rounded p-2 w-full">
+                <button class="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" @click="search">Search</button>
             </div>
         </div>
       </div>
@@ -37,11 +37,14 @@
   
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 const isOpen = ref(false);
 const isDragOver = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 const uploadedImageUrl = ref<string | null>(null);
+const imageLink = ref<string | null>(null);
+const router = useRouter();
 
 const close = () => {
     isOpen.value = false;
@@ -94,6 +97,17 @@ const removeImage = () => {
     uploadedImageUrl.value = null;
     if (fileInput.value) {
         fileInput.value.value = ''; // Clear the value of the file input to allow the same file to be selected again
+    }
+};
+
+const search = () => {
+    if (uploadedImageUrl.value || imageLink.value) {
+        // Logic to handle the search, potentially setting the image URL or uploaded image as a parameter
+        console.log('Searching...', uploadedImageUrl.value || imageLink.value)
+        router.push({ name: 'ImageSearchResults', query: { imageUrl: uploadedImageUrl.value || imageLink.value } });
+    } else {
+        // Handle case where there is no image or URL provided
+        alert('Please upload an image or provide an image URL first.');
     }
 };
 
