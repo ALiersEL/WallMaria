@@ -16,13 +16,13 @@
             </div>
 
             <!-- Search Results with Masonry Layout -->
-            <div class="w-1/2 p-4 flex items-start" ref="masonryColumns">
+            <div class="w-1/2 p-4 flex items-start overflow-auto max-h-[calc(100vh-64px)]" ref="masonryColumns">
                 <div class="w-1/3 pr-2" v-for="column in columns" :key="column.id" ref="column">
                     <div v-for="image in column.images" :key="image.id" class="mb-4">
                         <img :src="image.src" :alt="image.alt" class="h-auto rounded mb-2" />
                         <div class="text-sm">
-                            <h3>{{ image.title }}</h3>
-                            <p>{{ image.source }}</p>
+                            <h3 class="max-w-full break-words">{{ image.title }}</h3>
+                            <p class="max-w-full break-words">{{ image.source }}</p>
                         </div>
                     </div>
                 </div>
