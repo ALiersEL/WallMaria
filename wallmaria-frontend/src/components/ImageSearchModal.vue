@@ -16,12 +16,12 @@
                 :class="{ 'bg-blue-100': isDragOver }"
             >   
                 <!-- Remove Image Button -->
-                <button v-if="uploadedImageUrl" class="absolute top-0 right-1 bg-transparent text-gray-500 hover:text-gray-700 font-bold p-1 rounded" @click="removeImage">
+                <button v-if="uploadedImageBase64" class="absolute top-0 right-1 bg-transparent text-gray-500 hover:text-gray-700 font-bold p-1 rounded" @click="removeImage">
                     <i class="fas fa-times"></i>
                 </button>
 
                 <!-- Image or Upload Prompt -->
-                <img v-if="uploadedImageUrl" :src="uploadedImageUrl" alt="Uploaded image" class="max-w-full h-auto">
+                <img v-if="uploadedImageBase64" :src="uploadedImageBase64" alt="Uploaded image" class="max-w-full h-auto">
                 <div v-else class="flex flex-col items-center">
                     <p class="text-gray-500">Drag an image here or <span class="text-blue-600 cursor-pointer" @click="triggerFileUpload">upload a file</span></p>
                     <input type="file" class="hidden" ref="fileInput" @change="handleFileUpload($event)">
@@ -38,11 +38,13 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { v4 as uuidv4 } from 'uuid';
 
 const isOpen = ref(false);
 const isDragOver = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
-const uploadedImageUrl = ref<string | null>(null);
+const uploadedImageBase64 = ref<string | null>(null);
+const imageId = ref<string | null>(null);
 const imageLink = ref<string | null>(null);
 const router = useRouter();
 
@@ -60,9 +62,12 @@ const dragLeave = () => {
 };
 
 const displayImage = (file: File) => {
+    imageId.value = uuidv4();
     const reader = new FileReader();
     reader.onload = (e) => {
-        uploadedImageUrl.value = e.target?.result as string;
+        uploadedImageBase64.value = e.target?.result as string;
+        console.log(uploadedImageBase64.value)
+        localStorage.setItem(imageId.value!, uploadedImageBase64.value as string);
     };
     reader.readAsDataURL(file);
 };
@@ -72,7 +77,6 @@ const handleDrop = (event: DragEvent) => {
     if (event.dataTransfer && event.dataTransfer.files.length > 0) {
         const files = event.dataTransfer.files;
         const file = files[0];
-        // Handle the file (upload or read, etc.)
         displayImage(file);
         // You might want to close the modal or reset the state here
     }
@@ -87,24 +91,32 @@ const handleFileUpload = (event: Event) => {
     if (!input.files?.length) return;
 
     const file = input.files[0];
-    // Now you can use the file object for whatever you need
     displayImage(file);
     // Remember to clear the input after the file is handled
     input.value = '';
 };
 
 const removeImage = () => {
-    uploadedImageUrl.value = null;
     if (fileInput.value) {
         fileInput.value.value = ''; // Clear the value of the file input to allow the same file to be selected again
     }
+    if (imageId.value) {
+        localStorage.removeItem(imageId.value);
+    }
+    uploadedImageBase64.value = null;
+    imageId.value = null;
+    imageLink.value = null;
 };
 
 const search = () => {
-    if (uploadedImageUrl.value || imageLink.value) {
-        // Logic to handle the search, potentially setting the image URL or uploaded image as a parameter
-        console.log('Searching...', uploadedImageUrl.value || imageLink.value)
-        router.push({ name: 'ImageSearchResults', query: { imageUrl: uploadedImageUrl.value || imageLink.value } });
+    if (imageId.value || imageLink.value) {
+        const queryParams : Record<string, string> = {};
+        if (imageId.value) {
+            queryParams['image_id'] = imageId.value;
+        } else if (imageLink.value) {
+            queryParams['image_url'] = imageLink.value;
+        }
+        router.push({ name: 'ImageSearchResults', query: queryParams });
     } else {
         // Handle case where there is no image or URL provided
         alert('Please upload an image or provide an image URL first.');

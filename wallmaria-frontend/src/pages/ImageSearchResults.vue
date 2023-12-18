@@ -2,7 +2,7 @@
     <div class="w-full h-full flex flex-col">
         <!-- Header -->
         <header class="bg-white py-4 px-6 flex items-center justify-between shadow h-16">
-            <h1 class="text-xl font-bold">WallMaria</h1>
+            <h1 class="text-xl font-bold cursor-pointer" @click="navigateToHome">WallMaria</h1>
             <button class="bg-blue-500 text-white px-4 py-2 rounded ml-4">
                 Upload
             </button>
@@ -33,10 +33,11 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import defaultImage from "../assets/download.png";
 
 const route = useRoute();
+const router = useRouter();
 const inputImagePath = ref<string>(defaultImage);
 const columns = ref<any[]>([
     { id: 1, images: [] },
@@ -54,11 +55,15 @@ interface Image {
 
 // Watch for changes to the route params and update the image path accordingly
 watch(
-    () => route.params,
-    (params) => {
-        inputImagePath.value = (
-          params.imagePath || defaultImage
-        ).toString();
+    () => route.query,
+    (queryParams) => {
+        if (queryParams.image_id) {
+            const imageId = queryParams.image_id as string;
+            console.log(localStorage.getItem(imageId));
+            inputImagePath.value = localStorage.getItem(imageId) || defaultImage;
+        } else {
+            inputImagePath.value = queryParams.image_url as string;
+        }
     },
     { immediate: true }
 );
@@ -80,6 +85,10 @@ const addImageToShortestColumn = (newImage: Image) => {
         );
         columns.value[shortestColumnIndex].images.push(newImage);
     });
+};
+
+const navigateToHome = () => {
+    router.push("/");
 };
 
 fetch("api/posts?limit=10")

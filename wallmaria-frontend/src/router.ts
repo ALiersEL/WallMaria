@@ -15,8 +15,6 @@ const routes: Array<RouteRecordRaw> = [
         path: '/search-results',
         name: 'ImageSearchResults',
         component: () => import('./pages/ImageSearchResults.vue'), // Ensure you have this Vue file created
-        // If you need to pass parameters to this route, you can use props: true
-        // props: true
     },
 ];
 
