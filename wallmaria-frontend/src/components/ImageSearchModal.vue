@@ -117,7 +117,7 @@ defineExpose({ isOpen });
   
 <style scoped>
 .modal-container {
-    margin-top: auto;
-    margin-bottom: auto;
+  margin-top: auto;
+  margin-bottom: auto;
 }
 </style>
