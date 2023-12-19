@@ -66,7 +66,6 @@ const displayImage = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
         uploadedImageBase64.value = e.target?.result as string;
-        console.log(uploadedImageBase64.value)
         localStorage.setItem(imageId.value!, uploadedImageBase64.value as string);
     };
     reader.readAsDataURL(file);

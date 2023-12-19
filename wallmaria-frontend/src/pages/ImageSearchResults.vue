@@ -12,7 +12,31 @@
         <div class="flex flex-grow overflow-auto">
             <!-- Input Image Display -->
             <div class="bg-stone-800 w-1/2 p-24 flex items-center justify-center">
-                <img :src="inputImagePath" alt="Input" class="max-w-full max-h-full w-auto h-auto rounded" />
+                <img :src="inputImagePath" alt="Input" class="max-w-full max-h-full w-auto h-auto rounded" ref="imageElement"/>
+                <!-- Selection Box -->
+                <div
+                    class="border-4 border-blue-500 absolute cursor-move"
+                    :style="selectionStyle"
+                    @mousedown="startDrag"
+                >
+                    <!-- Resize Handles -->
+                    <div
+                        class="handle"
+                        @mousedown.prevent.stop="initResize('top-left', $event)"
+                    ></div>
+                    <div
+                        class="handle"
+                        @mousedown.prevent.stop="initResize('top-right', $event)"
+                    ></div>
+                    <div
+                        class="handle"
+                        @mousedown.prevent.stop="initResize('bottom-left', $event)"
+                    ></div>
+                    <div
+                        class="handle"
+                        @mousedown.prevent.stop="initResize('bottom-right', $event)"
+                    ></div>
+                </div>
             </div>
 
             <!-- Search Results with Masonry Layout -->
@@ -32,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from "vue";
+import { ref, reactive, watch, nextTick, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import defaultImage from "../assets/download.png";
 
@@ -59,7 +83,6 @@ watch(
     (queryParams) => {
         if (queryParams.image_id) {
             const imageId = queryParams.image_id as string;
-            console.log(localStorage.getItem(imageId));
             inputImagePath.value = localStorage.getItem(imageId) || defaultImage;
         } else {
             inputImagePath.value = queryParams.image_url as string;
@@ -90,6 +113,115 @@ const addImageToShortestColumn = (newImage: Image) => {
 const navigateToHome = () => {
     router.push("/");
 };
+
+const imageElement = ref<HTMLImageElement | null>(null);
+const selectionBox = reactive({
+    left: 0,
+    top: 0,
+    width: 100,
+    height: 100,
+    resizing: false,
+    resizeCorner: '',
+});
+const dragging = ref(false);
+let dragStartX = 0;
+let dragStartY = 0;
+
+const startDrag = (event: MouseEvent) => {
+    dragging.value = true;
+    dragStartX = event.pageX - selectionBox.left;
+    dragStartY = event.pageY - selectionBox.top;
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', endDrag);
+};
+
+const onMouseMove = (event: MouseEvent) => {
+    if (dragging.value && !selectionBox.resizing) {
+        selectionBox.left = Math.max(event.pageX - dragStartX, imageElement.value?.offsetLeft!);
+        selectionBox.top = Math.max(event.pageY - dragStartY, imageElement.value?.offsetTop!);
+        selectionBox.left = Math.min(selectionBox.left, imageElement.value?.offsetLeft! + imageElement.value?.offsetWidth! - selectionBox.width);
+        selectionBox.top = Math.min(selectionBox.top, imageElement.value?.offsetTop! + imageElement.value?.offsetHeight! - selectionBox.height);
+    } else if (selectionBox.resizing) {
+        onResize(event);
+    }
+};
+
+const endDrag = () => {
+    dragging.value = false;
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', endDrag);
+};
+
+const initResize = (corner: string, event: MouseEvent) => {
+    event.stopPropagation();
+    selectionBox.resizing = true;
+    selectionBox.resizeCorner = corner;
+    window.addEventListener('mousemove', onResize);
+    window.addEventListener('mouseup', endResize);
+};
+
+const onResize = (event: MouseEvent) => {
+    if (!selectionBox.resizing) return;
+
+    let newWidth: number = selectionBox.width;
+    let newHeight: number = selectionBox.height;
+    let newLeft: number = selectionBox.left;
+    let newTop: number = selectionBox.top;
+
+    switch (selectionBox.resizeCorner) {
+        case 'top-left':
+            newWidth = Math.max(selectionBox.width + selectionBox.left - event.pageX, 100);
+            newHeight = Math.max(selectionBox.height + selectionBox.top - event.pageY, 100);
+            newLeft = Math.min(event.pageX, selectionBox.left + selectionBox.width - 100);
+            newTop = Math.min(event.pageY, selectionBox.top + selectionBox.height - 100);
+            break;
+        case 'top-right':
+            newWidth = Math.max(event.pageX - selectionBox.left, 100);
+            newHeight = Math.max(selectionBox.height + selectionBox.top - event.pageY, 100);
+            newTop = Math.min(event.pageY, selectionBox.top + selectionBox.height - 100);
+            break;
+        case 'bottom-left':
+            newWidth = Math.max(selectionBox.width + selectionBox.left - event.pageX, 100);
+            newHeight = Math.max(event.pageY - selectionBox.top, 100);
+            newLeft = Math.min(event.pageX, selectionBox.left + selectionBox.width - 100);
+            break;
+        case 'bottom-right':
+            newWidth = Math.max(event.pageX - selectionBox.left, 100);
+            newHeight = Math.max(event.pageY - selectionBox.top, 100);
+            break;
+    }
+
+    if (imageElement.value) {
+        selectionBox.left = Math.max(newLeft, imageElement.value.offsetLeft);
+        selectionBox.top = Math.max(newTop, imageElement.value.offsetTop);
+        selectionBox.width = Math.min(newWidth, imageElement.value.offsetWidth - (selectionBox.left - imageElement.value.offsetLeft));
+        selectionBox.height = Math.min(newHeight, imageElement.value.offsetHeight - (selectionBox.top - imageElement.value.offsetTop));
+    }
+};
+
+const endResize = () => {
+    selectionBox.resizing = false;
+    window.removeEventListener('mousemove', onResize);
+    window.removeEventListener('mouseup', endResize);
+};
+
+// Add a computed property to bind the selection box style
+const selectionStyle = computed(() => ({
+    top: `${selectionBox.top}px`,
+    left: `${selectionBox.left}px`,
+    width: `${selectionBox.width}px`,
+    height: `${selectionBox.height}px`,
+    borderRadius: '24px',
+}));
+
+onMounted(() => {
+    if (imageElement.value) {
+        selectionBox.left = imageElement.value?.offsetLeft! + imageElement.value?.offsetWidth! / 4;
+        selectionBox.top = imageElement.value?.offsetTop! + imageElement.value?.offsetHeight! / 4;
+        selectionBox.width = imageElement.value?.offsetWidth! / 2;
+        selectionBox.height = imageElement.value?.offsetHeight! / 2;
+    }
+});
 
 fetch("api/posts?limit=10")
     .then((response) => response.json())
@@ -130,5 +262,45 @@ fetch("api/posts?limit=10")
 .break-inside-avoid {
   break-inside: avoid;
   page-break-inside: avoid;
+}
+
+.handle {
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  border: 2px solid blue;
+  position: absolute;
+  border-radius: 50%;
+}
+.handle:nth-child(1) {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+.handle:nth-child(2) {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+.handle:nth-child(3) {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+.handle:nth-child(4) {
+  bottom: -5px;
+  right: -5px;
+  cursor: nwse-resize;
+}
+
+img {
+   /* 火狐 */
+   -moz-user-select: none;
+    /* Safari 和 欧朋 */
+    -webkit-user-select: none;
+    /* IE10+ and Edge */
+    -ms-user-select: none;
+    /* Standard syntax 标准语法(谷歌) */
+    user-select: none;
 }
 </style>
