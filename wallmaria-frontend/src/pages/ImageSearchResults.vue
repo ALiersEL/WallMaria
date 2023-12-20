@@ -56,12 +56,14 @@ const columns = ref<any[]>([
     { id: 3, images: [] },
 ]);
 const masonryColumns = ref<HTMLElement | null>(null);
+const columnHeights = ref<number[]>([0, 0, 0]);
 interface Image {
     id: number;
     title: string;
     alt: string;
     src: string;
     source: string;
+    aspectRatio: number;
 }
 
 // Watch for changes to the route params and update the image path accordingly
@@ -214,21 +216,12 @@ const overlayStyle = computed(() => {
     };
 });
 
-const getColumnHeights = () => {
-    return masonryColumns.value
-        ? Array.from(masonryColumns.value.children).map(
-            (column) => column.clientHeight
-        )
-        : [];
-};
-
 const addImageToShortestColumn = (newImage: Image) => {
     nextTick().then(() => {
-        const columnHeights = getColumnHeights();
-        const shortestColumnIndex = columnHeights.indexOf(
-            Math.min(...columnHeights)
-        );
+        const shortestColumnIndex = columnHeights.value.indexOf(Math.min(...columnHeights.value));
         columns.value[shortestColumnIndex].images.push(newImage);
+        // 更新该列的高度
+        columnHeights.value[shortestColumnIndex] += newImage.aspectRatio * 300;
     });
 };
 
@@ -236,15 +229,17 @@ const navigateToHome = () => {
     router.push("/");
 };
 
-fetch("api/posts?limit=10")
+fetch("api/posts?limit=100")
     .then((response) => response.json())
     .then((data) => {
+        console.log(data)
         const formattedData = data.map((item: any) => ({
             id: item.id,
             title: item.uploader_id,
             alt: item.uploader_id,
             src: item.large_file_url,
             source: item.source,
+            aspectRatio: item.image_height / item.image_width,
         }));
         // 每隔 100ms 添加一张图片
         formattedData.forEach((image: Image, index: number) => {
