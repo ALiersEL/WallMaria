@@ -229,93 +229,131 @@ const navigateToHome = () => {
     router.push("/");
 };
 
-fetch("api/posts?limit=100")
-    .then((response) => response.json())
-    .then((data) => {
-        console.log(data)
-        const formattedData = data.map((item: any) => ({
-            id: item.id,
-            title: item.uploader_id,
-            alt: item.uploader_id,
-            src: item.large_file_url,
-            source: item.source,
-            aspectRatio: item.image_height / item.image_width,
-        }));
-        // 每隔 100ms 添加一张图片
-        formattedData.forEach((image: Image, index: number) => {
-            setTimeout(() => {
-                addImageToShortestColumn(image);
-            }, index * 10);
-        });
+
+// Convert the Base64 string to a Blob
+const fetchBase64AsBlob = async (base64String: string) => {
+    // Split the Base64 string into the data and mimeType
+    const [metadata, base64Data] = base64String.split(';base64,');
+    const mimeType = metadata.split(':')[1];
+
+    // Convert Base64 to binary
+    const binaryString = atob(base64Data);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Create a Blob from the binary data
+    const blob = new Blob([bytes], { type: mimeType });
+    return blob;
+};
+
+const sendBase64AsFile = async (base64String: string) => {
+    const blob = await fetchBase64AsBlob(base64String);
+    // Create FormData and append the Blob as 'file'
+    const formData = new FormData();
+    formData.append('file', blob, 'image.png');
+
+    // Set the 'top_k' parameter to 50
+    const params = new URLSearchParams({ top_k: '50' });
+
+
+    fetch('api/search_by_image?' + params.toString(), {
+        method: 'POST',
+        body: formData
     })
-    .catch((error) => {
-        console.error("Error fetching images:", error);
-    });
+        .then((response) => response.json())
+        .then((data) => {
+            console.log(data);
+            const formattedData = data.map((item: any) => ({
+                id: item.id,
+                title: item.uploader_id,
+                alt: item.uploader_id,
+                src: item.large_file_url,
+                source: item.source,
+                aspectRatio: item.image_height / item.image_width,
+            }));
+            // Add images to the page, adjust the timeout as needed
+            formattedData.forEach((image: Image, index: number) => {
+                setTimeout(() => {
+                    addImageToShortestColumn(image);
+                }, index * 100);
+            });
+        })
+        .catch((error) => {
+            console.error("Error fetching images:", error);
+        });
+};
+
+sendBase64AsFile(inputImagePath.value);
+
 </script>
 
 <style scoped>
 .overlay {
-  position: absolute;
-  background-color: rgba(58, 53, 53, 0.5);
-  pointer-events: none;
+    position: absolute;
+    background-color: rgba(58, 53, 53, 0.5);
+    pointer-events: none;
 }
 
 .handle {
-  width: 20px;
-  height: 20px;
-  position: absolute;
+    width: 20px;
+    height: 20px;
+    position: absolute;
 }
 
 .handle.top-left {
-  top: -5px;
-  left: -5px;
-  cursor: nwse-resize;
+    top: -5px;
+    left: -5px;
+    cursor: nwse-resize;
 }
 
 .handle.top-right {
-  top: -5px;
-  right: -5px;
-  cursor: nesw-resize;
+    top: -5px;
+    right: -5px;
+    cursor: nesw-resize;
 }
 
 .handle.bottom-left {
-  bottom: -5px;
-  left: -5px;
-  cursor: nesw-resize;
+    bottom: -5px;
+    left: -5px;
+    cursor: nesw-resize;
 }
 
 .handle.bottom-right {
-  bottom: -5px;
-  right: -5px;
-  cursor: nwse-resize;
+    bottom: -5px;
+    right: -5px;
+    cursor: nwse-resize;
 }
 
 img {
-  /* 火狐 */
-  -moz-user-select: none;
-  /* Safari 和 欧朋 */
-  -webkit-user-select: none;
-  /* IE10+ and Edge */
-  -ms-user-select: none;
-  /* Standard syntax 标准语法(谷歌) */
-  user-select: none;
+    /* 火狐 */
+    -moz-user-select: none;
+    /* Safari 和 欧朋 */
+    -webkit-user-select: none;
+    /* IE10+ and Edge */
+    -ms-user-select: none;
+    /* Standard syntax 标准语法(谷歌) */
+    user-select: none;
 }
 
 /* Custom styles for masonry layout */
 @media (max-width: 768px) {
-  .masonry {
-    column-count: 2;
-  }
+    .masonry {
+        column-count: 2;
+    }
 }
 
 @media (max-width: 640px) {
-  .masonry {
-    column-count: 1;
-  }
+    .masonry {
+        column-count: 1;
+    }
 }
 
 .break-inside-avoid {
-  break-inside: avoid;
-  page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-inside: avoid;
 }
 </style>
