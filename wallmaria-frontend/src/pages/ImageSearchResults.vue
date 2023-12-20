@@ -12,30 +12,17 @@
         <div class="flex flex-grow overflow-auto">
             <!-- Input Image Display -->
             <div class="bg-stone-800 w-1/2 p-24 flex items-center justify-center">
-                <img :src="inputImagePath" alt="Input" class="max-w-full max-h-full w-auto h-auto rounded" ref="imageElement"/>
+                <img :src="inputImagePath" alt="Input" class="max-w-full max-h-full w-auto h-auto rounded"
+                    ref="imageElement" />
+                <!-- Overlay Element -->
+                <div class="overlay" :style="overlayStyle"></div>
                 <!-- Selection Box -->
-                <div
-                    class="border-4 border-blue-500 absolute cursor-move"
-                    :style="selectionStyle"
-                    @mousedown="startDrag"
-                >
+                <div class="border-4 border-blue-500 absolute cursor-move" :style="selectionStyle" @mousedown="startDrag">
                     <!-- Resize Handles -->
-                    <div
-                        class="handle"
-                        @mousedown.prevent.stop="initResize('top-left', $event)"
-                    ></div>
-                    <div
-                        class="handle"
-                        @mousedown.prevent.stop="initResize('top-right', $event)"
-                    ></div>
-                    <div
-                        class="handle"
-                        @mousedown.prevent.stop="initResize('bottom-left', $event)"
-                    ></div>
-                    <div
-                        class="handle"
-                        @mousedown.prevent.stop="initResize('bottom-right', $event)"
-                    ></div>
+                    <div class="handle top-left" @mousedown.prevent.stop="initResize('top-left', $event)"></div>
+                    <div class="handle top-right" @mousedown.prevent.stop="initResize('top-right', $event)"></div>
+                    <div class="handle bottom-left" @mousedown.prevent.stop="initResize('bottom-left', $event)"></div>
+                    <div class="handle bottom-right" @mousedown.prevent.stop="initResize('bottom-right', $event)"></div>
                 </div>
             </div>
 
@@ -91,29 +78,6 @@ watch(
     { immediate: true }
 );
 
-const getColumnHeights = () => {
-    return masonryColumns.value
-      ? Array.from(masonryColumns.value.children).map(
-          (column) => column.clientHeight
-      )
-      : [];
-};
-
-const addImageToShortestColumn = (newImage: Image) => {
-    nextTick().then(() => {
-        const columnHeights = getColumnHeights();
-        console.log(columnHeights);
-        const shortestColumnIndex = columnHeights.indexOf(
-            Math.min(...columnHeights)
-        );
-        columns.value[shortestColumnIndex].images.push(newImage);
-    });
-};
-
-const navigateToHome = () => {
-    router.push("/");
-};
-
 const imageElement = ref<HTMLImageElement | null>(null);
 const selectionBox = reactive({
     left: 0,
@@ -131,24 +95,22 @@ const startDrag = (event: MouseEvent) => {
     dragging.value = true;
     dragStartX = event.pageX - selectionBox.left;
     dragStartY = event.pageY - selectionBox.top;
-    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mousemove', onDrag);
     window.addEventListener('mouseup', endDrag);
 };
 
-const onMouseMove = (event: MouseEvent) => {
+const onDrag = (event: MouseEvent) => {
     if (dragging.value && !selectionBox.resizing) {
         selectionBox.left = Math.max(event.pageX - dragStartX, imageElement.value?.offsetLeft!);
         selectionBox.top = Math.max(event.pageY - dragStartY, imageElement.value?.offsetTop!);
         selectionBox.left = Math.min(selectionBox.left, imageElement.value?.offsetLeft! + imageElement.value?.offsetWidth! - selectionBox.width);
         selectionBox.top = Math.min(selectionBox.top, imageElement.value?.offsetTop! + imageElement.value?.offsetHeight! - selectionBox.height);
-    } else if (selectionBox.resizing) {
-        onResize(event);
     }
 };
 
 const endDrag = () => {
     dragging.value = false;
-    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mousemove', onDrag);
     window.removeEventListener('mouseup', endDrag);
 };
 
@@ -161,8 +123,6 @@ const initResize = (corner: string, event: MouseEvent) => {
 };
 
 const onResize = (event: MouseEvent) => {
-    if (!selectionBox.resizing) return;
-
     let newWidth: number = selectionBox.width;
     let newHeight: number = selectionBox.height;
     let newLeft: number = selectionBox.left;
@@ -207,21 +167,78 @@ const endResize = () => {
 
 // Add a computed property to bind the selection box style
 const selectionStyle = computed(() => ({
-    top: `${selectionBox.top}px`,
     left: `${selectionBox.left}px`,
+    top: `${selectionBox.top}px`,
     width: `${selectionBox.width}px`,
     height: `${selectionBox.height}px`,
     borderRadius: '24px',
 }));
 
 onMounted(() => {
-    if (imageElement.value) {
+    // 等待图片加载完成后，设置选择框的初始位置
+    imageElement.value?.addEventListener('load', () => {
         selectionBox.left = imageElement.value?.offsetLeft! + imageElement.value?.offsetWidth! / 4;
         selectionBox.top = imageElement.value?.offsetTop! + imageElement.value?.offsetHeight! / 4;
         selectionBox.width = imageElement.value?.offsetWidth! / 2;
         selectionBox.height = imageElement.value?.offsetHeight! / 2;
-    }
+    });
 });
+
+// // Add a computed property for the overlay style
+const overlayStyle = computed(() => {
+    if (!imageElement.value) return {};
+
+    const overlayLeft = `${imageElement.value.offsetLeft}px`;
+    const overlayTop = `${imageElement.value.offsetTop}px`;
+    const overlayWidth = `${imageElement.value.offsetWidth}px`;
+    const overlayHeight = `${imageElement.value.offsetHeight}px`;
+
+    const outerTopLeft = `0px 0px`;
+    const outerTopRight = `${imageElement.value.offsetWidth}px 0px`;
+    const outerBottomRight = `${imageElement.value.offsetWidth}px ${imageElement.value.offsetHeight}px`;
+    const outerBottomLeft = `0px ${imageElement.value.offsetHeight}px`;
+
+    // 内部长方形 (selectionBox)
+    const innerTopLeft = `${selectionBox.left - imageElement.value.offsetLeft}px ${selectionBox.top - imageElement.value.offsetTop}px`;
+    const innerTopRight = `${selectionBox.left - imageElement.value.offsetLeft + selectionBox.width}px ${selectionBox.top - imageElement.value.offsetTop}px`;
+    const innerBottomRight = `${selectionBox.left - imageElement.value.offsetLeft + selectionBox.width}px ${selectionBox.top - imageElement.value.offsetTop + selectionBox.height}px`;
+    const innerBottomLeft = `${selectionBox.left - imageElement.value.offsetLeft}px ${selectionBox.top - imageElement.value.offsetTop + selectionBox.height}px`;
+
+    const intersectionBottomLeft = `${selectionBox.left - imageElement.value.offsetLeft}px ${imageElement.value.offsetHeight}px`;
+
+    // 输出clipPath的值
+    console.log(`polygon(${outerTopLeft}, ${outerBottomLeft}, ${intersectionBottomLeft}, ${innerTopLeft}, ${innerTopRight}, ${innerBottomRight}, ${innerBottomLeft}, ${intersectionBottomLeft}, ${outerBottomRight}, ${outerTopRight})`);
+
+    return {
+        left: overlayLeft,
+        top: overlayTop,
+        width: overlayWidth,
+        height: overlayHeight,
+        clipPath: `polygon(${outerTopLeft}, ${outerBottomLeft}, ${intersectionBottomLeft}, ${innerTopLeft}, ${innerTopRight}, ${innerBottomRight}, ${innerBottomLeft}, ${intersectionBottomLeft}, ${outerBottomRight}, ${outerTopRight})`
+    };
+});
+
+const getColumnHeights = () => {
+    return masonryColumns.value
+        ? Array.from(masonryColumns.value.children).map(
+            (column) => column.clientHeight
+        )
+        : [];
+};
+
+const addImageToShortestColumn = (newImage: Image) => {
+    nextTick().then(() => {
+        const columnHeights = getColumnHeights();
+        const shortestColumnIndex = columnHeights.indexOf(
+            Math.min(...columnHeights)
+        );
+        columns.value[shortestColumnIndex].images.push(newImage);
+    });
+};
+
+const navigateToHome = () => {
+    router.push("/");
+};
 
 fetch("api/posts?limit=10")
     .then((response) => response.json())
@@ -246,6 +263,56 @@ fetch("api/posts?limit=10")
 </script>
 
 <style scoped>
+.overlay {
+  position: absolute;
+  background-color: rgba(58, 53, 53, 0.5);
+  pointer-events: none;
+}
+
+.handle {
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  border: 2px solid blue;
+  position: absolute;
+  border-radius: 50%;
+}
+
+.handle.top-left {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+
+.handle.top-right {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+
+.handle.bottom-left {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+
+.handle.bottom-right {
+  bottom: -5px;
+  right: -5px;
+  cursor: nwse-resize;
+}
+
+img {
+  /* 火狐 */
+  -moz-user-select: none;
+  /* Safari 和 欧朋 */
+  -webkit-user-select: none;
+  /* IE10+ and Edge */
+  -ms-user-select: none;
+  /* Standard syntax 标准语法(谷歌) */
+  user-select: none;
+}
+
 /* Custom styles for masonry layout */
 @media (max-width: 768px) {
   .masonry {
@@ -262,45 +329,5 @@ fetch("api/posts?limit=10")
 .break-inside-avoid {
   break-inside: avoid;
   page-break-inside: avoid;
-}
-
-.handle {
-  width: 10px;
-  height: 10px;
-  background-color: white;
-  border: 2px solid blue;
-  position: absolute;
-  border-radius: 50%;
-}
-.handle:nth-child(1) {
-  top: -5px;
-  left: -5px;
-  cursor: nwse-resize;
-}
-.handle:nth-child(2) {
-  top: -5px;
-  right: -5px;
-  cursor: nesw-resize;
-}
-.handle:nth-child(3) {
-  bottom: -5px;
-  left: -5px;
-  cursor: nesw-resize;
-}
-.handle:nth-child(4) {
-  bottom: -5px;
-  right: -5px;
-  cursor: nwse-resize;
-}
-
-img {
-   /* 火狐 */
-   -moz-user-select: none;
-    /* Safari 和 欧朋 */
-    -webkit-user-select: none;
-    /* IE10+ and Edge */
-    -ms-user-select: none;
-    /* Standard syntax 标准语法(谷歌) */
-    user-select: none;
 }
 </style>
