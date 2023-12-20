@@ -17,7 +17,7 @@
                 <!-- Overlay Element -->
                 <div class="overlay" :style="overlayStyle"></div>
                 <!-- Selection Box -->
-                <div class="border-4 border-blue-500 absolute cursor-move" :style="selectionStyle" @mousedown="startDrag">
+                <div class="border-4 border-orange-500 absolute cursor-move" :style="selectionStyle" @mousedown="startDrag">
                     <!-- Resize Handles -->
                     <div class="handle top-left" @mousedown.prevent.stop="initResize('top-left', $event)"></div>
                     <div class="handle top-right" @mousedown.prevent.stop="initResize('top-right', $event)"></div>
@@ -171,7 +171,6 @@ const selectionStyle = computed(() => ({
     top: `${selectionBox.top}px`,
     width: `${selectionBox.width}px`,
     height: `${selectionBox.height}px`,
-    borderRadius: '24px',
 }));
 
 onMounted(() => {
@@ -205,9 +204,6 @@ const overlayStyle = computed(() => {
     const innerBottomLeft = `${selectionBox.left - imageElement.value.offsetLeft}px ${selectionBox.top - imageElement.value.offsetTop + selectionBox.height}px`;
 
     const intersectionBottomLeft = `${selectionBox.left - imageElement.value.offsetLeft}px ${imageElement.value.offsetHeight}px`;
-
-    // 输出clipPath的值
-    console.log(`polygon(${outerTopLeft}, ${outerBottomLeft}, ${intersectionBottomLeft}, ${innerTopLeft}, ${innerTopRight}, ${innerBottomRight}, ${innerBottomLeft}, ${intersectionBottomLeft}, ${outerBottomRight}, ${outerTopRight})`);
 
     return {
         left: overlayLeft,
@@ -270,12 +266,9 @@ fetch("api/posts?limit=10")
 }
 
 .handle {
-  width: 10px;
-  height: 10px;
-  background-color: white;
-  border: 2px solid blue;
+  width: 20px;
+  height: 20px;
   position: absolute;
-  border-radius: 50%;
 }
 
 .handle.top-left {
