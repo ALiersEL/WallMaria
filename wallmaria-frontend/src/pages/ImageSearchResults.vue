@@ -50,6 +50,7 @@ import defaultImage from "../assets/download.png";
 const route = useRoute();
 const router = useRouter();
 const inputImagePath = ref<string>(defaultImage);
+const uploadedImageBase64 = ref<string | null>(null);
 const columns = ref<any[]>([
     { id: 1, images: [] },
     { id: 2, images: [] },
@@ -73,8 +74,11 @@ watch(
         if (queryParams.image_id) {
             const imageId = queryParams.image_id as string;
             inputImagePath.value = localStorage.getItem(imageId) || defaultImage;
+            uploadedImageBase64.value = inputImagePath.value;
         } else {
             inputImagePath.value = queryParams.image_url as string;
+            uploadedImageBase64.value = localStorage.getItem(inputImagePath.value);
+            console.log(uploadedImageBase64.value)
         }
     },
     { immediate: true }
@@ -287,8 +291,7 @@ const sendBase64AsFile = async (base64String: string) => {
         });
 };
 
-sendBase64AsFile(inputImagePath.value);
-
+sendBase64AsFile(uploadedImageBase64.value!);
 </script>
 
 <style scoped>
