@@ -93,6 +93,47 @@ const selectionBox = reactive({
     resizing: false,
     resizeCorner: '',
 });
+
+const cropImageAndUpload = () => {
+    if (!imageElement.value) return;
+
+    const image = new Image();
+    image.src = imageElement.value.src;
+
+    image.onload = () => {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d')!;
+
+        const scaleX = imageElement.value!.naturalWidth / imageElement.value!.width;
+        const scaleY = imageElement.value!.naturalHeight / imageElement.value!.height;
+
+        canvas.width = selectionBox.width * scaleX;
+        canvas.height = selectionBox.height * scaleY;
+
+        context.drawImage(
+            imageElement.value!,
+            selectionBox.left * scaleX,
+            selectionBox.top * scaleY,
+            selectionBox.width * scaleX,
+            selectionBox.height * scaleY,
+            0,
+            0,
+            selectionBox.width * scaleX,
+            selectionBox.height * scaleY
+        );
+
+        canvas.toBlob((blob) => {
+            const formData = new FormData();
+            formData.append('file', blob!, 'image.png');
+            sendImageFile(formData);
+        });
+    };
+
+    image.onerror = () => {
+        console.error('Error loading the image');
+    };
+};
+
 const dragging = ref(false);
 let dragStartX = 0;
 let dragStartY = 0;
@@ -118,6 +159,7 @@ const endDrag = () => {
     dragging.value = false;
     window.removeEventListener('mousemove', onDrag);
     window.removeEventListener('mouseup', endDrag);
+    cropImageAndUpload();
 };
 
 const initResize = (corner: string, event: MouseEvent) => {
@@ -169,6 +211,7 @@ const endResize = () => {
     selectionBox.resizing = false;
     window.removeEventListener('mousemove', onResize);
     window.removeEventListener('mouseup', endResize);
+    cropImageAndUpload();
 };
 
 // Add a computed property to bind the selection box style
@@ -254,15 +297,9 @@ const fetchBase64AsBlob = async (base64String: string) => {
     return blob;
 };
 
-const sendBase64AsFile = async (base64String: string) => {
-    const blob = await fetchBase64AsBlob(base64String);
-    // Create FormData and append the Blob as 'file'
-    const formData = new FormData();
-    formData.append('file', blob, 'image.png');
-
+const sendImageFile = async (formData: FormData) => {
     // Set the 'top_k' parameter to 50
     const params = new URLSearchParams({ top_k: '50' });
-
 
     fetch('api/search_by_image?' + params.toString(), {
         method: 'POST',
@@ -270,7 +307,6 @@ const sendBase64AsFile = async (base64String: string) => {
     })
         .then((response) => response.json())
         .then((data) => {
-            console.log(data);
             const formattedData = data.map((item: any) => ({
                 id: item.id,
                 title: item.uploader_id,
@@ -279,6 +315,10 @@ const sendBase64AsFile = async (base64String: string) => {
                 source: item.source,
                 aspectRatio: item.image_height / item.image_width,
             }));
+            // clear the columns
+            columns.value.forEach((column) => {
+                column.images = [];
+            });
             // Add images to the page, adjust the timeout as needed
             formattedData.forEach((image: Image, index: number) => {
                 setTimeout(() => {
@@ -289,6 +329,14 @@ const sendBase64AsFile = async (base64String: string) => {
         .catch((error) => {
             console.error("Error fetching images:", error);
         });
+};
+
+const sendBase64AsFile = async (base64String: string) => {
+    const blob = await fetchBase64AsBlob(base64String);
+    // Create FormData and append the Blob as 'file'
+    const formData = new FormData();
+    formData.append('file', blob, 'image.png');
+    sendImageFile(formData);
 };
 
 sendBase64AsFile(uploadedImageBase64.value!);
