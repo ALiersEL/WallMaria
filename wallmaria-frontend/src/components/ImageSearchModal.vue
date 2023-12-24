@@ -40,20 +40,18 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { v4 as uuidv4 } from 'uuid';
 
 const isOpen = ref(false);
 const isDragOver = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 const uploadedImageBase64 = ref<string | null>(null);
-const imageId = ref<string | null>(null);
 const imageLink = ref<string | null>(null);
+const imageToken = ref<string | null>(null);
 const router = useRouter();
 
 const close = () => {
     isOpen.value = false;
 };
-
 
 const dragEnter = () => {
     isDragOver.value = true;
@@ -63,12 +61,34 @@ const dragLeave = () => {
     isDragOver.value = false;
 };
 
+const getImageToken = async (image: File | Blob) => {
+    const formData = new FormData();
+    formData.append('file', image, 'image.png');
+    fetch('/api/upload_image', {
+        method: 'POST',
+        body: formData,
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(data)
+            // Store the token in local storage
+            localStorage.setItem('imageToken', data.token);
+            imageToken.value = data.token;
+        })
+        .catch(error => {
+            console.error('Error uploading image:', error);
+        });
+};
+
 const displayImage = (file: File) => {
-    imageId.value = uuidv4();
     const reader = new FileReader();
     reader.onload = (e) => {
         uploadedImageBase64.value = e.target?.result as string;
-        localStorage.setItem(imageId.value!, uploadedImageBase64.value as string);
     };
     reader.readAsDataURL(file);
 };
@@ -78,8 +98,8 @@ const handleDrop = (event: DragEvent) => {
     if (event.dataTransfer && event.dataTransfer.files.length > 0) {
         const files = event.dataTransfer.files;
         const file = files[0];
+        getImageToken(file);
         displayImage(file);
-        // You might want to close the modal or reset the state here
     }
 };
 
@@ -92,6 +112,7 @@ const handleFileUpload = (event: Event) => {
     if (!input.files?.length) return;
 
     const file = input.files[0];
+    getImageToken(file);
     displayImage(file);
     // Remember to clear the input after the file is handled
     input.value = '';
@@ -101,15 +122,11 @@ const removeImage = () => {
     if (fileInput.value) {
         fileInput.value.value = ''; // Clear the value of the file input to allow the same file to be selected again
     }
-    if (imageId.value) {
-        localStorage.removeItem(imageId.value);
-    }
     uploadedImageBase64.value = null;
-    imageId.value = null;
-    imageLink.value = null;
+    imageToken.value = null;
 };
 
-const downloadImageAndStoreInLocalStorage = (imageUrl: string) => {
+const downloadImageAndGetToken = async (imageUrl: string) => {
     fetch(imageUrl)
         .then(response => {
             if (!response.ok) {
@@ -119,32 +136,21 @@ const downloadImageAndStoreInLocalStorage = (imageUrl: string) => {
             return response.blob();
         })
         .then(blob => {
-            // Create a FileReader object to convert the Blob into a Base64 string
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                // Get the Base64 string
-                const base64String = reader.result;
-                // Store the string in localStorage with the specified key
-                localStorage.setItem(imageUrl, base64String as string);
-                console.log('Image stored in localStorage');
-            };
-            // Read the Blob as a Data URL (Base64 string)
-            reader.readAsDataURL(blob);
+            getImageToken(blob);
         })
         .catch(error => {
             console.error('Error downloading or storing image:', error);
         });
 }
 
-const search = () => {
-    if (imageId.value || imageLink.value) {
+const search = async () => {
+    console.log(imageLink.value)
+    if(imageLink.value) {
+        await downloadImageAndGetToken(imageLink.value);
+    }
+    if (imageToken.value) {
         const queryParams: Record<string, string> = {};
-        if (imageId.value) {
-            queryParams['image_id'] = imageId.value;
-        } else if (imageLink.value) {
-            downloadImageAndStoreInLocalStorage(imageLink.value);
-            queryParams['image_url'] = imageLink.value;
-        }
+        queryParams['token'] = imageToken.value!;
         router.push({ name: 'ImageSearchResults', query: queryParams });
     } else {
         // Handle case where there is no image or URL provided

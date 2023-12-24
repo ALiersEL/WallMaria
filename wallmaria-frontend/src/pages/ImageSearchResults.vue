@@ -30,11 +30,11 @@
             <div class="w-1/2 p-4 flex items-start overflow-auto max-h-[calc(100vh-64px)]" ref="masonryColumns">
                 <div class="w-1/3 pr-2" v-for="column in columns" :key="column.id" ref="column">
                     <div v-for="image in column.images" :key="image.id" class="mb-4">
-                        <img :src="image.src" :alt="image.alt" class="h-auto rounded mb-2" />
-                        <!-- <div class="text-sm" ref="imageInfo">
+                        <img :src="image.src" :alt="image.alt" class="h-auto rounded-lg mb-2" />
+                        <div class="text-sm" ref="imageInfo">
                             <h3 class="max-w-full break-words line-clamp-1">{{ image.title }}</h3>
                             <p class="max-w-full break-words line-clamp-2">{{ image.source }}</p>
-                        </div> -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -51,7 +51,6 @@ import BigNumber from "bignumber.js";
 const route = useRoute();
 const router = useRouter();
 const inputImagePath = ref<string>(defaultImage);
-const uploadedImageBase64 = ref<string | null>(null);
 const columns = ref<any[]>([
     { id: 1, images: [] },
     { id: 2, images: [] },
@@ -68,18 +67,17 @@ interface Image {
     width: number;
     height: number;
 }
+const page = ref<number>(1);
+const imageToken = ref<string | null>(null);
 
 // Watch for changes to the route params and update the image path accordingly
 watch(
     () => route.query,
     (queryParams) => {
-        if (queryParams.image_id) {
-            const imageId = queryParams.image_id as string;
-            inputImagePath.value = localStorage.getItem(imageId) || defaultImage;
-            uploadedImageBase64.value = inputImagePath.value;
-        } else {
-            inputImagePath.value = queryParams.image_url as string;
-            uploadedImageBase64.value = localStorage.getItem(inputImagePath.value);
+        if (queryParams.token) {
+            imageToken.value = queryParams.token as string;
+            inputImagePath.value = `http://localhost:5173/api/searches/${imageToken.value}`;
+            page.value = 1;
         }
     },
     { immediate: true }
@@ -95,45 +93,65 @@ const selectionBox = reactive({
     resizeCorner: '',
 });
 
-const cropImageAndUpload = () => {
-    if (!imageElement.value) return;
+const getNaturalCropBox = () => {
+    const scaleX = imageElement.value!.naturalWidth / imageElement.value!.width;
+    const scaleY = imageElement.value!.naturalHeight / imageElement.value!.height;
 
-    const image = new Image();
-    image.src = imageElement.value.src;
-
-    image.onload = () => {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d')!;
-
-        const scaleX = imageElement.value!.naturalWidth / imageElement.value!.width;
-        const scaleY = imageElement.value!.naturalHeight / imageElement.value!.height;
-
-        canvas.width = selectionBox.width * scaleX;
-        canvas.height = selectionBox.height * scaleY;
-
-        context.drawImage(
-            imageElement.value!,
-            selectionBox.left * scaleX,
-            selectionBox.top * scaleY,
-            selectionBox.width * scaleX,
-            selectionBox.height * scaleY,
-            0,
-            0,
-            selectionBox.width * scaleX,
-            selectionBox.height * scaleY
-        );
-
-        canvas.toBlob((blob) => {
-            const formData = new FormData();
-            formData.append('file', blob!, 'image.png');
-            sendImageFile(formData);
-        });
-    };
-
-    image.onerror = () => {
-        console.error('Error loading the image');
+    return {
+        left: Math.floor((selectionBox.left - imageElement.value!.offsetLeft) * scaleX),
+        top: Math.floor((selectionBox.top - imageElement.value!.offsetTop) * scaleY),
+        width: Math.floor(selectionBox.width * scaleX),
+        height: Math.floor(selectionBox.height * scaleY),
     };
 };
+
+// 如果有
+const loadMoreImages = async () => {
+    console.log("loadMoreImages")
+    if (!imageToken.value) return;
+
+    const cropBox = getNaturalCropBox();
+
+    const params = new URLSearchParams({ 
+        token: imageToken.value, 
+        page: page.value.toString(),
+        left: cropBox.left.toString(),
+        top: cropBox.top.toString(),
+        width: cropBox.width.toString(),
+        height: cropBox.height.toString(),
+    });
+
+    fetch('api/search_by_crop?' + params.toString())
+        .then((response) => response.json())
+        .then((data) => {
+            const formattedData = data.map((item: any) => ({
+                id: item.id,
+                title: item.uploader_id,
+                alt: item.uploader_id,
+                src: item.large_file_url,
+                source: item.source,
+                width: item.image_width,
+                height: item.image_height,
+            }));
+            // Add images to the page, adjust the timeout as needed
+            formattedData.forEach((image: Image) => {
+                addImageToShortestColumn(image);
+            });
+            page.value++;
+        })
+        .catch((error) => {
+            console.error("Error fetching images:", error);
+        });
+};
+
+// const onScroll = () => {
+//     const scrollPosition = masonryColumns.value!.scrollTop;
+//     const scrollHeight = masonryColumns.value!.scrollHeight;
+//     const clientHeight = masonryColumns.value!.clientHeight;
+//     if (scrollPosition + clientHeight >= scrollHeight) {
+//         loadMoreImages();
+//     }
+// };
 
 const dragging = ref(false);
 let dragStartX = 0;
@@ -160,7 +178,12 @@ const endDrag = () => {
     dragging.value = false;
     window.removeEventListener('mousemove', onDrag);
     window.removeEventListener('mouseup', endDrag);
-    cropImageAndUpload();
+    // 清空
+    columns.value.forEach((column) => {
+        column.images = [];
+    });
+    page.value = 1;
+    loadMoreImages();
 };
 
 const initResize = (corner: string, event: MouseEvent) => {
@@ -212,7 +235,12 @@ const endResize = () => {
     selectionBox.resizing = false;
     window.removeEventListener('mousemove', onResize);
     window.removeEventListener('mouseup', endResize);
-    cropImageAndUpload();
+    // 清空
+    columns.value.forEach((column) => {
+        column.images = [];
+    });
+    page.value = 1;
+    loadMoreImages();
 };
 
 // Add a computed property to bind the selection box style
@@ -230,6 +258,7 @@ onMounted(() => {
         selectionBox.top = imageElement.value?.offsetTop!;
         selectionBox.width = imageElement.value?.offsetWidth!;
         selectionBox.height = imageElement.value?.offsetHeight!;
+        loadMoreImages();
     });
 });
 
@@ -291,70 +320,6 @@ const addImageToShortestColumn = (newImage: Image) => {
 const navigateToHome = () => {
     router.push("/");
 };
-
-
-// Convert the Base64 string to a Blob
-const fetchBase64AsBlob = async (base64String: string) => {
-    // Split the Base64 string into the data and mimeType
-    const [metadata, base64Data] = base64String.split(';base64,');
-    const mimeType = metadata.split(':')[1];
-
-    // Convert Base64 to binary
-    const binaryString = atob(base64Data);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    // Create a Blob from the binary data
-    const blob = new Blob([bytes], { type: mimeType });
-    return blob;
-};
-
-const sendImageFile = async (formData: FormData) => {
-    // Set the 'top_k' parameter to 50
-    const params = new URLSearchParams({ top_k: '50' });
-
-    fetch('api/search_by_image?' + params.toString(), {
-        method: 'POST',
-        body: formData
-    })
-        .then((response) => response.json())
-        .then((data) => {
-            const formattedData = data.map((item: any) => ({
-                id: item.id,
-                title: item.uploader_id,
-                alt: item.uploader_id,
-                src: item.large_file_url,
-                source: item.source,
-                width: item.image_width,
-                height: item.image_height,
-            }));
-            // clear the columns
-            columns.value.forEach((column) => {
-                column.images = [];
-            });
-            // Add images to the page, adjust the timeout as needed
-            formattedData.forEach((image: Image) => {
-                addImageToShortestColumn(image);
-            });
-        })
-        .catch((error) => {
-            console.error("Error fetching images:", error);
-        });
-};
-
-const sendBase64AsFile = async (base64String: string) => {
-    const blob = await fetchBase64AsBlob(base64String);
-    // Create FormData and append the Blob as 'file'
-    const formData = new FormData();
-    formData.append('file', blob, 'image.png');
-    sendImageFile(formData);
-};
-
-sendBase64AsFile(uploadedImageBase64.value!);
 </script>
 
 <style scoped>
