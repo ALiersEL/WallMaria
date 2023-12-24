@@ -31,10 +31,10 @@
                 <div class="w-1/3 pr-2" v-for="column in columns" :key="column.id" ref="column">
                     <div v-for="image in column.images" :key="image.id" class="mb-4">
                         <img :src="image.src" :alt="image.alt" class="h-auto rounded mb-2" />
-                        <div class="text-sm">
-                            <h3 class="max-w-full break-words">{{ image.title }}</h3>
-                            <p class="max-w-full break-words">{{ image.source }}</p>
-                        </div>
+                        <!-- <div class="text-sm" ref="imageInfo">
+                            <h3 class="max-w-full break-words line-clamp-1">{{ image.title }}</h3>
+                            <p class="max-w-full break-words line-clamp-2">{{ image.source }}</p>
+                        </div> -->
                     </div>
                 </div>
             </div>
@@ -46,6 +46,7 @@
 import { ref, reactive, watch, nextTick, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import defaultImage from "../assets/download.png";
+import BigNumber from "bignumber.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -57,14 +58,15 @@ const columns = ref<any[]>([
     { id: 3, images: [] },
 ]);
 const masonryColumns = ref<HTMLElement | null>(null);
-const columnHeights = ref<number[]>([0, 0, 0]);
+const columnHeights = ref<BigNumber[]>([new BigNumber('0'), new BigNumber('0'), new BigNumber('0')]);
 interface Image {
     id: number;
     title: string;
     alt: string;
     src: string;
     source: string;
-    aspectRatio: number;
+    width: number;
+    height: number;
 }
 
 // Watch for changes to the route params and update the image path accordingly
@@ -78,7 +80,6 @@ watch(
         } else {
             inputImagePath.value = queryParams.image_url as string;
             uploadedImageBase64.value = localStorage.getItem(inputImagePath.value);
-            console.log(uploadedImageBase64.value)
         }
     },
     { immediate: true }
@@ -225,10 +226,10 @@ const selectionStyle = computed(() => ({
 onMounted(() => {
     // 等待图片加载完成后，设置选择框的初始位置
     imageElement.value?.addEventListener('load', () => {
-        selectionBox.left = imageElement.value?.offsetLeft! + imageElement.value?.offsetWidth! / 4;
-        selectionBox.top = imageElement.value?.offsetTop! + imageElement.value?.offsetHeight! / 4;
-        selectionBox.width = imageElement.value?.offsetWidth! / 2;
-        selectionBox.height = imageElement.value?.offsetHeight! / 2;
+        selectionBox.left = imageElement.value?.offsetLeft!;
+        selectionBox.top = imageElement.value?.offsetTop!;
+        selectionBox.width = imageElement.value?.offsetWidth!;
+        selectionBox.height = imageElement.value?.offsetHeight!;
     });
 });
 
@@ -236,39 +237,54 @@ onMounted(() => {
 const overlayStyle = computed(() => {
     if (!imageElement.value) return {};
 
-    const overlayLeft = `${imageElement.value.offsetLeft}px`;
-    const overlayTop = `${imageElement.value.offsetTop}px`;
-    const overlayWidth = `${imageElement.value.offsetWidth}px`;
-    const overlayHeight = `${imageElement.value.offsetHeight}px`;
+    const overlayLeft = imageElement.value.offsetLeft - 1
+    const overlayTop = imageElement.value.offsetTop - 1
+    const overlayWidth = imageElement.value.offsetWidth + 1
+    const overlayHeight = imageElement.value.offsetHeight + 1
 
     const outerTopLeft = `0px 0px`;
-    const outerTopRight = `${imageElement.value.offsetWidth}px 0px`;
-    const outerBottomRight = `${imageElement.value.offsetWidth}px ${imageElement.value.offsetHeight}px`;
-    const outerBottomLeft = `0px ${imageElement.value.offsetHeight}px`;
+    const outerTopRight = `${overlayWidth}px 0px`;
+    const outerBottomRight = `${overlayWidth}px ${overlayHeight}px`;
+    const outerBottomLeft = `0px ${overlayHeight}px`;
 
     // 内部长方形 (selectionBox)
-    const innerTopLeft = `${selectionBox.left - imageElement.value.offsetLeft}px ${selectionBox.top - imageElement.value.offsetTop}px`;
-    const innerTopRight = `${selectionBox.left - imageElement.value.offsetLeft + selectionBox.width}px ${selectionBox.top - imageElement.value.offsetTop}px`;
-    const innerBottomRight = `${selectionBox.left - imageElement.value.offsetLeft + selectionBox.width}px ${selectionBox.top - imageElement.value.offsetTop + selectionBox.height}px`;
-    const innerBottomLeft = `${selectionBox.left - imageElement.value.offsetLeft}px ${selectionBox.top - imageElement.value.offsetTop + selectionBox.height}px`;
+    const innerTopLeft = `${selectionBox.left - overlayLeft}px ${selectionBox.top - overlayTop}px`;
+    const innerTopRight = `${selectionBox.left - overlayLeft + selectionBox.width}px ${selectionBox.top - overlayTop}px`;
+    const innerBottomRight = `${selectionBox.left - overlayLeft + selectionBox.width}px ${selectionBox.top - overlayTop + selectionBox.height}px`;
+    const innerBottomLeft = `${selectionBox.left - overlayLeft}px ${selectionBox.top - overlayTop + selectionBox.height}px`;
 
-    const intersectionBottomLeft = `${selectionBox.left - imageElement.value.offsetLeft}px ${imageElement.value.offsetHeight}px`;
+    const intersectionBottomLeft = `${selectionBox.left - overlayLeft}px ${overlayHeight}px`;
 
     return {
-        left: overlayLeft,
-        top: overlayTop,
-        width: overlayWidth,
-        height: overlayHeight,
+        left: `${overlayLeft}px`,
+        top: `${overlayTop}px`,
+        width: `${overlayWidth}px`,
+        height: `${overlayHeight}px`,
         clipPath: `polygon(${outerTopLeft}, ${outerBottomLeft}, ${intersectionBottomLeft}, ${innerTopLeft}, ${innerTopRight}, ${innerBottomRight}, ${innerBottomLeft}, ${intersectionBottomLeft}, ${outerBottomRight}, ${outerTopRight})`
     };
 });
 
+
+const calculateImageDisplayHeight = (imageWidthBigNumber: BigNumber, imageHeightBigNumber: BigNumber, columnWidthBigNumber: BigNumber, marginBottomBigNumber: BigNumber) => {
+    return imageHeightBigNumber.multipliedBy(columnWidthBigNumber).dividedBy(imageWidthBigNumber).plus(marginBottomBigNumber);
+};
+
 const addImageToShortestColumn = (newImage: Image) => {
     nextTick().then(() => {
-        const shortestColumnIndex = columnHeights.value.indexOf(Math.min(...columnHeights.value));
+        const shortestColumnIndex = columnHeights.value!.reduce((shortestIndex, columnHeight, index) => {
+            if (columnHeight.isLessThan(columnHeights.value![shortestIndex])) {
+                return index;
+            } else {
+                return shortestIndex;
+            }
+        }, 0);
         columns.value[shortestColumnIndex].images.push(newImage);
-        // 更新该列的高度
-        columnHeights.value[shortestColumnIndex] += newImage.aspectRatio * 300;
+        const imageWidthBigNumber = new BigNumber(newImage.width.toString());
+        const imageHeightBigNumber = new BigNumber(newImage.height.toString());
+        const columnWidthBigNumber = new BigNumber(masonryColumns.value!.offsetWidth.toString()).dividedBy(new BigNumber('3'));
+        const marginBottomBigNumber = new BigNumber('8');
+        const columnHeight = calculateImageDisplayHeight(imageWidthBigNumber, imageHeightBigNumber, columnWidthBigNumber, marginBottomBigNumber);
+        columnHeights.value[shortestColumnIndex] = columnHeights.value[shortestColumnIndex].plus(columnHeight);
     });
 };
 
@@ -313,17 +329,16 @@ const sendImageFile = async (formData: FormData) => {
                 alt: item.uploader_id,
                 src: item.large_file_url,
                 source: item.source,
-                aspectRatio: item.image_height / item.image_width,
+                width: item.image_width,
+                height: item.image_height,
             }));
             // clear the columns
             columns.value.forEach((column) => {
                 column.images = [];
             });
             // Add images to the page, adjust the timeout as needed
-            formattedData.forEach((image: Image, index: number) => {
-                setTimeout(() => {
-                    addImageToShortestColumn(image);
-                }, index * 100);
+            formattedData.forEach((image: Image) => {
+                addImageToShortestColumn(image);
             });
         })
         .catch((error) => {
