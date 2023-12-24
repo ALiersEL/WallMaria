@@ -87,3 +87,6 @@ class PostInDB(Post):
     tag_string_copyright: str
     tag_string_artist: str
     tag_string_meta: str
+
+class UploadResponse(BaseModel):
+    token: str
