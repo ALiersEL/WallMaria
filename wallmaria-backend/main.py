@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 
 from models import Post, PostInDB, UploadResponse
 from bson import ObjectId
 
+import pymongo
 from pymilvus import Collection
 
 import database
@@ -13,6 +14,7 @@ from clip_loader import load_clip_model, extract_text_features, extract_image_fe
 import io
 import uuid
 import json
+import hashlib
 from PIL import Image
 from utils import _transform
 from config import config
@@ -175,24 +177,29 @@ async def upload_image(file: UploadFile = File(...)):
     上传图片并保存，返回一个唯一的 token。
     """
     image_data = await file.read()
-    res = await search_mongo.insert_one({"image_data": image_data})
-    token = str(res.inserted_id)
-    return {"token": token}
+    # Calculate MD5 hash
+    md5_hash = hashlib.md5(image_data).hexdigest()
+    # 插入图片到 MongoDB
+    try:
+        await search_mongo.insert_one({"md5_hash": md5_hash, "image_data": image_data})
+    except pymongo.errors.DuplicateKeyError:
+        pass
+    return {"token": md5_hash}
 
-@app.get("/searches/{token}", response_model=FileResponse)
+@app.get("/searches/{token}", response_class=StreamingResponse)
 async def get_search_image(token: str):
     """
     根据 token 返回图片文件。
     """
     try:
-        image_record = await search_mongo.find_one({"_id": ObjectId(token)})
+        image_record = await search_mongo.find_one({"md5_hash": token})
     except:
         raise HTTPException(status_code=404, detail="Invalid token")
 
     if not image_record:
         raise HTTPException(status_code=404, detail="Image not found")
 
-    return FileResponse(io.BytesIO(image_record["image_data"]), media_type="image/png")
+    return StreamingResponse(io.BytesIO(image_record["image_data"]), media_type="image/png")
 
 @app.get("/search_by_crop", response_model=list[Post])
 async def search_by_crop(token: str, left: int, top: int, width: int, height: int, page: int = 1, page_size: int = 10):
@@ -206,7 +213,7 @@ async def search_by_crop(token: str, left: int, top: int, width: int, height: in
     if cached_features is None:
         # 从 MongoDB 获取图片
         try:
-            image_record = await search_mongo.find_one({"_id": ObjectId(token)})
+            image_record = await search_mongo.find_one({"md5_hash": token})
         except:
             raise HTTPException(status_code=404, detail="Invalid token")
 
