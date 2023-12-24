@@ -198,6 +198,9 @@ async def search_by_crop(token: str, left: int, top: int, width: int, height: in
             raise HTTPException(status_code=404, detail="Image not found")
 
         image = Image.open(io.BytesIO(image_record["image_data"]))
+        # 有界性检查
+        if left < 0 or top < 0 or width < 0 or height < 0 or left + width > image.width or top + height > image.height:
+            raise HTTPException(status_code=400, detail="Invalid crop parameters")
         # 执行裁剪和特征提取
         cropped_image = image.crop((left, top, left + width, top + height))
         transformed_image = transform(cropped_image)
