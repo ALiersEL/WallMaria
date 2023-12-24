@@ -144,7 +144,7 @@ async def get_results(token: str, page: int = 1, page_size: int = 10):
     posts = await get_posts_from_ids(image_ids)
     return posts
 
-@app.post("/search_by_text", response_model=list[Post])
+@app.get("/search_by_text", response_model=list[Post])
 async def search_by_text(text: str, page: int = 1, page_size: int = 10):
     """
     根据文本搜索相似的图片，并缓存文本特征。
@@ -178,7 +178,7 @@ async def upload_image(file: UploadFile = File(...)):
     token = str(res.inserted_id)
     return {"token": token}
 
-@app.post("/search_by_crop", response_model=list[Post])
+@app.get("/search_by_crop", response_model=list[Post])
 async def search_by_crop(token: str, left: int, top: int, width: int, height: int, page: int = 1, page_size: int = 10):
     """
     根据裁剪参数和 token 搜索相似的图片。
