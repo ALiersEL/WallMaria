@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 
 from models import Post, PostInDB, UploadResponse
 from bson import ObjectId
@@ -177,6 +178,21 @@ async def upload_image(file: UploadFile = File(...)):
     res = await search_mongo.insert_one({"image_data": image_data})
     token = str(res.inserted_id)
     return {"token": token}
+
+@app.get("/searches/{token}", response_model=FileResponse)
+async def get_search_image(token: str):
+    """
+    根据 token 返回图片文件。
+    """
+    try:
+        image_record = await search_mongo.find_one({"_id": ObjectId(token)})
+    except:
+        raise HTTPException(status_code=404, detail="Invalid token")
+
+    if not image_record:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    return FileResponse(io.BytesIO(image_record["image_data"]), media_type="image/png")
 
 @app.get("/search_by_crop", response_model=list[Post])
 async def search_by_crop(token: str, left: int, top: int, width: int, height: int, page: int = 1, page_size: int = 10):
