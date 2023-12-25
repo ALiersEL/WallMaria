@@ -8,6 +8,7 @@ import pymongo
 from pymilvus import Collection
 
 import database
+import numpy as np
 from database import search_similar_images
 from clip_loader import load_clip_model, extract_text_features, extract_image_features
 
@@ -153,18 +154,7 @@ async def search_by_text(text: str, page: int = 1, page_size: int = 10):
     根据文本搜索相似的图片，并缓存文本特征。
     """
     # 使用文本内容作为 Redis 缓存的键
-    cache_key = f"text_{text}"
-    cached_features = await redis_client.get(cache_key)
-
-    if cached_features is None:
-        # 提取文本特征
-        features = extract_text_features(clip_model, [text], device=device)
-
-        # 将特征保存到 Redis
-        await redis_client.set(cache_key, json.dumps(features.tolist()), ex=3600)  # 例如，缓存 1 小时
-    else:
-        # 使用缓存的特征
-        features = json.loads(cached_features)
+    features = await get_text_cache(text)
 
     # 在 Milvus 中搜索相似的图片
     image_ids = search_similar_images(post_milvus, features, page, page_size)
@@ -206,6 +196,55 @@ async def search_by_crop(token: str, left: int, top: int, width: int, height: in
     """
     根据裁剪参数和 token 搜索相似的图片。
     """
+    # 从 Redis 获取特征
+    features = await get_crop_cache(token, left, top, width, height)
+
+    # 在 Milvus 中搜索相似的图片
+    image_ids = search_similar_images(post_milvus, features, page, page_size)
+    posts = await get_posts_from_ids(image_ids)
+    return posts
+
+@app.get("/search_by_image_text", response_model=list[Post])
+async def search_by_image_text(token: str, left: int, top: int, width: int, height: int, text: str, alpha: float = 0.5, page: int = 1, page_size: int = 10):
+    """
+    根据图片和文本搜索相似的图片。
+    """
+    image_features = await get_crop_cache(token, left, top, width, height)
+    text_features = await get_text_cache(text)
+
+    # 混合特征
+    features = (1 - alpha) * image_features + alpha * text_features
+
+    # 在 Milvus 中搜索相似的图片
+    image_ids = search_similar_images(post_milvus, features, page, page_size)
+    posts = await get_posts_from_ids(image_ids)
+    return posts
+
+async def get_posts_from_ids(image_ids):
+    # 在 MongoDB 中查询图片信息
+    posts = await post_mongo.find({"id": {"$in": image_ids}}).to_list(length=len(image_ids))
+    # 根据 image_ids 的顺序对 posts 进行排序
+    posts.sort(key=lambda post: image_ids.index(post["id"]))
+    return posts
+
+async def get_text_cache(text):
+    # 检查 Redis 缓存
+    cache_key = f"text_{text}"
+    cached_features = await redis_client.get(cache_key)
+
+    if cached_features is None:
+        # 提取文本特征
+        features = extract_text_features(clip_model, [text], device=device)
+
+        # 将特征保存到 Redis
+        await redis_client.set(text, json.dumps(features.tolist()), ex=3600)  # 例如，缓存 1 小时
+    else:
+        # 使用缓存的特征
+        features = np.array(json.loads(cached_features))
+
+    return features
+
+async def get_crop_cache(token, left, top, width, height):
     # 检查 Redis 缓存
     cache_key = f"{token}_{left}_{top}_{width}_{height}"
     cached_features = await redis_client.get(cache_key)
@@ -233,16 +272,6 @@ async def search_by_crop(token: str, left: int, top: int, width: int, height: in
         await redis_client.set(cache_key, json.dumps(features.tolist()), ex=3600)  # 例如，缓存 1 小时
     else:
         # 使用缓存的特征
-        features = json.loads(cached_features)
+        features = np.array(json.loads(cached_features))
 
-    # 在 Milvus 中搜索相似的图片
-    image_ids = search_similar_images(post_milvus, features, page, page_size)
-    posts = await get_posts_from_ids(image_ids)
-    return posts
-
-async def get_posts_from_ids(image_ids):
-    # 在 MongoDB 中查询图片信息
-    posts = await post_mongo.find({"id": {"$in": image_ids}}).to_list(length=len(image_ids))
-    # 根据 image_ids 的顺序对 posts 进行排序
-    posts.sort(key=lambda post: image_ids.index(post["id"]))
-    return posts
+    return features
