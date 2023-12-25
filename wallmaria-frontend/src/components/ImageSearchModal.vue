@@ -151,7 +151,7 @@ const search = async () => {
     if (imageToken.value) {
         const queryParams: Record<string, string> = {};
         queryParams['token'] = imageToken.value!;
-        router.push({ name: 'ImageSearchResults', query: queryParams });
+        router.push({ name: 'SearchResults', query: queryParams });
     } else {
         // Handle case where there is no image or URL provided
         alert('Please upload an image or provide an image URL first.');

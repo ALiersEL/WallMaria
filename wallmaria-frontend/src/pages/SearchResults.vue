@@ -3,6 +3,9 @@
         <!-- Header -->
         <header class="bg-white py-4 px-6 flex items-center justify-between shadow h-16">
             <h1 class="text-xl font-bold cursor-pointer" @click="navigateToHome">WallMaria</h1>
+            <!-- <div class="flex items-center">
+                <input type="text" class="border border-gray-300 rounded px-4 py-2" placeholder="Search..." />
+            </div> -->
             <button class="bg-blue-500 text-white px-4 py-2 rounded ml-4">
                 Upload
             </button>
@@ -11,13 +14,16 @@
         <!-- Main Content -->
         <div class="flex flex-grow overflow-auto">
             <!-- Input Image Display -->
-            <div class="bg-stone-800 w-1/2 p-24 flex items-center justify-center">
-                <img :src="inputImagePath" alt="Input" class="max-w-full max-h-full w-auto h-auto rounded"
+            <div v-if="inputImagePath === null" class="w-1/2 h-full flex justify-center items-center ">
+                <ImageUpload class="w-2/3 h-4/5"/>
+            </div>
+            <div v-else class="bg-stone-800 w-1/2 p-24 flex items-center justify-center">
+                <img :src="inputImagePath!" alt="Input" class="max-w-full max-h-full w-auto h-auto rounded"
                     ref="imageElement" />
                 <!-- Overlay Element -->
                 <div class="overlay" :style="overlayStyle"></div>
                 <!-- Selection Box -->
-                <div class="border-4 border-orange-500 absolute cursor-move" :style="selectionStyle" @mousedown="startDrag">
+                <div v-if="imageLoaded" class="border-4 border-orange-500 absolute cursor-move" :style="selectionStyle" @mousedown="startDrag">
                     <!-- Resize Handles -->
                     <div class="handle top-left" @mousedown.prevent.stop="initResize('top-left', $event)"></div>
                     <div class="handle top-right" @mousedown.prevent.stop="initResize('top-right', $event)"></div>
@@ -25,6 +31,7 @@
                     <div class="handle bottom-right" @mousedown.prevent.stop="initResize('bottom-right', $event)"></div>
                 </div>
             </div>
+
 
             <!-- Search Results with Masonry Layout -->
             <div class="w-1/2 p-4 flex items-start overflow-auto max-h-[calc(100vh-64px)]" ref="masonryColumns">
@@ -46,12 +53,12 @@
 <script setup lang="ts">
 import { ref, Ref, reactive, watch, nextTick, computed, onMounted, VNodeRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import defaultImage from "../assets/download.png";
 import BigNumber from "bignumber.js";
+import ImageUpload from "../components/ImageUpload.vue";
 
 const route = useRoute();
 const router = useRouter();
-const inputImagePath = ref<string>(defaultImage);
+const inputImagePath = ref<string| null>(null);
 const columns = ref<any[]>([
     { id: 1, images: [] },
     { id: 2, images: [] },
@@ -71,14 +78,30 @@ interface Image {
 }
 const page = ref<number>(1);
 const imageToken = ref<string | null>(null);
+const searchQuery = ref<string | null>(null);
+const imageLoaded = ref(false);
+
 
 // Watch for changes to the route params and update the image path accordingly
 watch(
     () => route.query,
     (queryParams) => {
-        if (queryParams.token) {
+        if (queryParams.token && queryParams.q) {
             imageToken.value = queryParams.token as string;
+            searchQuery.value = queryParams.q as string;
             inputImagePath.value = `http://localhost:5173/api/searches/${imageToken.value}`;
+            page.value = 1;
+        }
+        else if (queryParams.token) {
+            imageToken.value = queryParams.token as string;
+            searchQuery.value = null;
+            inputImagePath.value = `http://localhost:5173/api/searches/${imageToken.value}`;
+            page.value = 1;
+        }
+        else if (queryParams.q) {
+            imageToken.value = null;
+            searchQuery.value = queryParams.q as string;
+            inputImagePath.value = null;
             page.value = 1;
         }
     },
@@ -108,8 +131,21 @@ const getNaturalCropBox = () => {
 };
 
 const loadMoreImages = async () => {
-    console.log("loadMoreImages", page.value, imageToken.value);
-    if (!imageToken.value) return;
+    if (!imageToken.value && !searchQuery.value) return;
+
+    if(imageToken.value && searchQuery.value) {
+        
+    }
+    else if(imageToken.value) {
+        fetchImagesByImageToken();
+    }
+    else if (searchQuery.value) {   
+        fetchImagesBySearchQuery();
+    }
+};
+
+const fetchImagesByImageToken = async () => {
+    if(!imageToken.value) return;
 
     const cropBox = getNaturalCropBox();
 
@@ -122,12 +158,15 @@ const loadMoreImages = async () => {
         height: cropBox.height.toString(),
     });
 
+    console.log("loadMoreImages", params.toString());
+
+    page.value++;
     fetch('api/search_by_crop?' + params.toString())
         .then((response) => response.json())
         .then((data) => {
             const formattedData = data.map((item: any) => ({
                 id: item.id,
-                title: item.uploader_id,
+                title: item.id,
                 alt: item.uploader_id,
                 src: item.large_file_url,
                 source: item.source,
@@ -138,33 +177,66 @@ const loadMoreImages = async () => {
             formattedData.forEach((image: Image) => {
                 addImageToShortestColumn(image);
             });
-            page.value++;
         })
         .catch((error) => {
             console.error("Error fetching images:", error);
         });
 };
 
+const fetchImagesBySearchQuery = async () => {
+    if(!searchQuery.value) return;
+    const params = new URLSearchParams({
+        text: searchQuery.value,
+        page: page.value.toString(),
+    });
+
+    console.log("loadMoreImages", params.toString());
+
+    page.value++;
+    fetch('api/search_by_text?' + params.toString())
+        .then((response) => response.json())
+        .then((data) => {
+            const formattedData = data.map((item: any) => ({
+                id: item.id,
+                title: item.id,
+                alt: item.uploader_id,
+                src: item.large_file_url,
+                source: item.source,
+                width: item.image_width,
+                height: item.image_height,
+            }));
+            // Add images to the page, adjust the timeout as needed
+            formattedData.forEach((image: Image) => {
+                addImageToShortestColumn(image);
+            });
+        })
+        .catch((error) => {
+            console.error("Error fetching images:", error);
+        });
+
+};
+
 const sentinelRefs: Ref<Element>[] = [];
 const setSentinelRef = (index: number) => (el: Element) => {
-  if (el) {
-    sentinelRefs[index] = ref(el);
-  }
+    if (el) {
+        sentinelRefs[index] = ref(el);
+    }
 };
 
 const createObserver = () => {
     sentinelRefs.forEach((sentinelRef) => {
         const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-                loadMoreImages();
+            for (const entry of entries) {
+                if (entry.isIntersecting) {
+                    loadMoreImages();
+                    break;
+                }
             }
-        });
         });
         if (sentinelRef.value) {
             observer.observe(sentinelRef.value);
         }
-  });
+    });
 };
 
 const dragging = ref(false);
@@ -273,6 +345,7 @@ onMounted(() => {
         selectionBox.top = imageElement.value?.offsetTop!;
         selectionBox.width = imageElement.value?.offsetWidth!;
         selectionBox.height = imageElement.value?.offsetHeight!;
+        imageLoaded.value = true;
         loadMoreImages();
     });
 });
