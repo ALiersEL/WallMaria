@@ -28,7 +28,7 @@
 
             <!-- Search Results with Masonry Layout -->
             <div class="w-1/2 p-4 flex items-start overflow-auto max-h-[calc(100vh-64px)]" ref="masonryColumns">
-                <div class="w-1/3 pr-2" v-for="column in columns" :key="column.id" ref="column">
+                <div class="w-1/3 pr-2" v-for="(column, index) in columns" :key="column.id" ref="column">
                     <div v-for="image in column.images" :key="image.id" class="mb-4">
                         <img :src="image.src" :alt="image.alt" class="h-auto rounded-lg mb-2" />
                         <div class="text-sm" ref="imageInfo">
@@ -36,6 +36,7 @@
                             <p class="max-w-full break-words line-clamp-2">{{ image.source }}</p>
                         </div>
                     </div>
+                    <div :ref="(setSentinelRef(index) as VNodeRef)"></div> <!-- 哨兵元素 -->
                 </div>
             </div>
         </div>
@@ -43,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, nextTick, computed, onMounted } from "vue";
+import { ref, Ref, reactive, watch, nextTick, computed, onMounted, VNodeRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import defaultImage from "../assets/download.png";
 import BigNumber from "bignumber.js";
@@ -58,6 +59,7 @@ const columns = ref<any[]>([
 ]);
 const masonryColumns = ref<HTMLElement | null>(null);
 const columnHeights = ref<BigNumber[]>([new BigNumber('0'), new BigNumber('0'), new BigNumber('0')]);
+const columnNumber = ref<number>(3);
 interface Image {
     id: number;
     title: string;
@@ -105,15 +107,14 @@ const getNaturalCropBox = () => {
     };
 };
 
-// 如果有
 const loadMoreImages = async () => {
-    console.log("loadMoreImages")
+    console.log("loadMoreImages", page.value, imageToken.value);
     if (!imageToken.value) return;
 
     const cropBox = getNaturalCropBox();
 
-    const params = new URLSearchParams({ 
-        token: imageToken.value, 
+    const params = new URLSearchParams({
+        token: imageToken.value,
         page: page.value.toString(),
         left: cropBox.left.toString(),
         top: cropBox.top.toString(),
@@ -144,14 +145,27 @@ const loadMoreImages = async () => {
         });
 };
 
-// const onScroll = () => {
-//     const scrollPosition = masonryColumns.value!.scrollTop;
-//     const scrollHeight = masonryColumns.value!.scrollHeight;
-//     const clientHeight = masonryColumns.value!.clientHeight;
-//     if (scrollPosition + clientHeight >= scrollHeight) {
-//         loadMoreImages();
-//     }
-// };
+const sentinelRefs: Ref<Element>[] = [];
+const setSentinelRef = (index: number) => (el: Element) => {
+  if (el) {
+    sentinelRefs[index] = ref(el);
+  }
+};
+
+const createObserver = () => {
+    sentinelRefs.forEach((sentinelRef) => {
+        const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+                loadMoreImages();
+            }
+        });
+        });
+        if (sentinelRef.value) {
+            observer.observe(sentinelRef.value);
+        }
+  });
+};
 
 const dragging = ref(false);
 let dragStartX = 0;
@@ -252,6 +266,7 @@ const selectionStyle = computed(() => ({
 }));
 
 onMounted(() => {
+    createObserver();
     // 等待图片加载完成后，设置选择框的初始位置
     imageElement.value?.addEventListener('load', () => {
         selectionBox.left = imageElement.value?.offsetLeft!;
@@ -310,7 +325,7 @@ const addImageToShortestColumn = (newImage: Image) => {
         columns.value[shortestColumnIndex].images.push(newImage);
         const imageWidthBigNumber = new BigNumber(newImage.width.toString());
         const imageHeightBigNumber = new BigNumber(newImage.height.toString());
-        const columnWidthBigNumber = new BigNumber(masonryColumns.value!.offsetWidth.toString()).dividedBy(new BigNumber('3'));
+        const columnWidthBigNumber = new BigNumber(masonryColumns.value!.offsetWidth.toString()).dividedBy(new BigNumber(columnNumber.value.toString()));
         const marginBottomBigNumber = new BigNumber('8');
         const columnHeight = calculateImageDisplayHeight(imageWidthBigNumber, imageHeightBigNumber, columnWidthBigNumber, marginBottomBigNumber);
         columnHeights.value[shortestColumnIndex] = columnHeights.value[shortestColumnIndex].plus(columnHeight);
