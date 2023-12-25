@@ -281,6 +281,10 @@ async def predict_image_info(token: str, left: int, top: int, width: int, height
 async def get_posts_from_ids(image_ids):
     # 在 MongoDB 中查询图片信息
     posts = await post_mongo.find({"id": {"$in": image_ids}}).to_list(length=len(image_ids))
+    # 遍历 posts，若存在 pixiv_id，把 source 替换为 pixiv.net/artworks/{pixiv_id}
+    for post in posts:
+        if post["pixiv_id"]:
+            post["source"] = f"https://pixiv.net/artworks/{post['pixiv_id']}"
     # 根据 image_ids 的顺序对 posts 进行排序
     posts.sort(key=lambda post: image_ids.index(post["id"]))
     return posts
