@@ -1,5 +1,5 @@
 <template>
-    <div class="modal-container bg-white relative"> <!-- 将模态容器的宽高设置为父 div 的一半 -->
+    <div class="modal-container relative"> <!-- 将模态容器的宽高设置为父 div 的一半 -->
         <div class="border-dashed border-2 border-gray-200 flex justify-center items-center relative h-full" @dragover.prevent
             @dragenter.prevent="dragEnter" @dragleave.prevent="dragLeave" @drop.prevent="handleDrop($event)"
             :class="{ 'bg-blue-100': isDragOver }">
@@ -14,8 +14,6 @@
         </div>
     </div>
 </template>
-
-<!-- 保留剩余的脚本和样式不变 -->
 
   
 <script setup lang="ts">

@@ -2,13 +2,17 @@
     <div class="w-full h-full flex flex-col">
         <!-- Header -->
         <header class="bg-white py-4 px-6 flex items-center justify-between shadow h-16">
-            <h1 class="text-xl font-bold cursor-pointer" @click="navigateToHome">WallMaria</h1>
-            <!-- <div class="flex items-center">
-                <input type="text" class="border border-gray-300 rounded px-4 py-2" placeholder="Search..." />
-            </div> -->
-            <button class="bg-blue-500 text-white px-4 py-2 rounded ml-4">
-                Upload
-            </button>
+            <div>
+                <h1 class="text-xl font-bold cursor-pointer" @click="navigateToHome">WallMaria</h1>
+            </div>
+            <div class="flex-1 flex justify-end">
+                <input type="text" class="border rounded-full w-1/2 h-10 pl-5 pr-10 text-sm focus:outline-none" v-model="searchQuery"
+                        @keyup.enter="search" placeholder="Search WallMaria or type a URL" style="max-width: calc(50% - 90px);" />
+                <button class="bg-blue-500 text-white px-4 py-2 rounded ml-4" @click="openImageSearchModal">
+                    Upload
+                </button>
+                <ImageSearchModal ref="imageSearchModal"/>
+            </div>
         </header>
 
         <!-- Main Content -->
@@ -55,6 +59,7 @@ import { ref, Ref, reactive, watch, nextTick, computed, onMounted, VNodeRef } fr
 import { useRoute, useRouter } from "vue-router";
 import BigNumber from "bignumber.js";
 import ImageUpload from "../components/ImageUpload.vue";
+import ImageSearchModal from "../components/ImageSearchModal.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -80,6 +85,19 @@ const page = ref<number>(1);
 const imageToken = ref<string | null>(null);
 const searchQuery = ref<string | null>(null);
 const imageLoaded = ref(false);
+let rank = 0;
+let isRequestPending = false;
+
+
+const clearImages = () => {
+    // 清空
+    columns.value.forEach((column) => {
+        column.images = [];
+    });
+    page.value = 1;
+    rank = 0;
+    columnHeights.value = [new BigNumber('0'), new BigNumber('0'), new BigNumber('0')];
+};
 
 
 // Watch for changes to the route params and update the image path accordingly
@@ -89,21 +107,19 @@ watch(
         if (queryParams.token && queryParams.q) {
             imageToken.value = queryParams.token as string;
             searchQuery.value = queryParams.q as string;
-            inputImagePath.value = `http://localhost:5173/api/searches/${imageToken.value}`;
-            page.value = 1;
+            inputImagePath.value = `/api/searches/${imageToken.value}`;
         }
         else if (queryParams.token) {
             imageToken.value = queryParams.token as string;
             searchQuery.value = null;
-            inputImagePath.value = `http://localhost:5173/api/searches/${imageToken.value}`;
-            page.value = 1;
+            inputImagePath.value = `/api/searches/${imageToken.value}`;
         }
         else if (queryParams.q) {
             imageToken.value = null;
             searchQuery.value = queryParams.q as string;
             inputImagePath.value = null;
-            page.value = 1;
         }
+        clearImages();
     },
     { immediate: true }
 );
@@ -146,9 +162,11 @@ const loadMoreImages = async () => {
 
 const fetchImagesByImageToken = async () => {
     if(!imageToken.value) return;
-
+    if(isRequestPending) return;
     const cropBox = getNaturalCropBox();
+    if(cropBox.width === 0 || cropBox.height === 0 || isNaN(cropBox.width) || isNaN(cropBox.height)) return;
 
+    isRequestPending = true;
     const params = new URLSearchParams({
         token: imageToken.value,
         page: page.value.toString(),
@@ -160,7 +178,6 @@ const fetchImagesByImageToken = async () => {
 
     console.log("loadMoreImages", params.toString());
 
-    page.value++;
     fetch('api/search_by_crop?' + params.toString())
         .then((response) => response.json())
         .then((data) => {
@@ -173,18 +190,30 @@ const fetchImagesByImageToken = async () => {
                 width: item.image_width,
                 height: item.image_height,
             }));
+            for (const image of formattedData) {
+                image.title = image.title + " " + rank;
+                rank++;
+            }
+            console.log(data.map((item: any) => item.id));
             // Add images to the page, adjust the timeout as needed
             formattedData.forEach((image: Image) => {
                 addImageToShortestColumn(image);
             });
+            page.value++;
+            isRequestPending = false;
         })
         .catch((error) => {
             console.error("Error fetching images:", error);
+            isRequestPending = false;
         });
 };
 
 const fetchImagesBySearchQuery = async () => {
     if(!searchQuery.value) return;
+    if(isRequestPending) return;
+
+    isRequestPending = true;
+
     const params = new URLSearchParams({
         text: searchQuery.value,
         page: page.value.toString(),
@@ -192,7 +221,7 @@ const fetchImagesBySearchQuery = async () => {
 
     console.log("loadMoreImages", params.toString());
 
-    page.value++;
+
     fetch('api/search_by_text?' + params.toString())
         .then((response) => response.json())
         .then((data) => {
@@ -209,9 +238,16 @@ const fetchImagesBySearchQuery = async () => {
             formattedData.forEach((image: Image) => {
                 addImageToShortestColumn(image);
             });
+            for (const image of formattedData) {
+                image.title = image.title + " " + rank;
+                rank++;
+            }
+            page.value++;
+            isRequestPending = false;
         })
         .catch((error) => {
             console.error("Error fetching images:", error);
+            isRequestPending = false;
         });
 
 };
@@ -265,10 +301,7 @@ const endDrag = () => {
     window.removeEventListener('mousemove', onDrag);
     window.removeEventListener('mouseup', endDrag);
     // 清空
-    columns.value.forEach((column) => {
-        column.images = [];
-    });
-    page.value = 1;
+    clearImages();
     loadMoreImages();
 };
 
@@ -322,10 +355,7 @@ const endResize = () => {
     window.removeEventListener('mousemove', onResize);
     window.removeEventListener('mouseup', endResize);
     // 清空
-    columns.value.forEach((column) => {
-        column.images = [];
-    });
-    page.value = 1;
+    clearImages();
     loadMoreImages();
 };
 
@@ -390,6 +420,7 @@ const addImageToShortestColumn = (newImage: Image) => {
     nextTick().then(() => {
         const shortestColumnIndex = columnHeights.value!.reduce((shortestIndex, columnHeight, index) => {
             if (columnHeight.isLessThan(columnHeights.value![shortestIndex])) {
+                console.log("shortestIndex", shortestIndex, "columnHeight", columnHeight.toString(), "index", index, "columnHeights.value![shortestIndex]", columnHeights.value![shortestIndex].toString())
                 return index;
             } else {
                 return shortestIndex;
@@ -407,6 +438,17 @@ const addImageToShortestColumn = (newImage: Image) => {
 
 const navigateToHome = () => {
     router.push("/");
+};
+
+interface ImageSearchModalInterface {
+    isOpen: boolean;
+}
+const imageSearchModal = ref<Ref<ImageSearchModalInterface> | null>(null);
+
+const openImageSearchModal = () => {
+    if (imageSearchModal.value) {
+        imageSearchModal.value.isOpen = true;
+    }
 };
 </script>
 

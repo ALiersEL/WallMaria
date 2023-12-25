@@ -1,7 +1,7 @@
 <template>
-    <div v-if="isOpen" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center overflow-auto py-8"
+    <div v-if="isOpen" class="w-full fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center overflow-auto py-8 z-50"
         @click="close">
-        <div class="modal-container bg-white rounded-lg p-5 shadow-xl relative" style="width: 600px;" @click.stop>
+        <div class="modal-container w-1/3 bg-white rounded-lg p-5 shadow-xl relative" @click.stop>
             <!-- Set a specific width -->
             <div class="flex justify-between items-center pb-3">
                 <p class="text-2xl font-bold text-center flex-grow">Search any image with WallMaria</p>
@@ -9,6 +9,7 @@
                     <i class="fas fa-times"></i>
                 </div>
             </div>
+            
             <div class="border-dashed border-2 border-gray-200 rounded flex justify-center items-center p-10 relative"
                 @dragover.prevent @dragenter.prevent="dragEnter" @dragleave.prevent="dragLeave"
                 @drop.prevent="handleDrop($event)" :class="{ 'bg-blue-100': isDragOver }">
@@ -152,6 +153,7 @@ const search = async () => {
         const queryParams: Record<string, string> = {};
         queryParams['token'] = imageToken.value!;
         router.push({ name: 'SearchResults', query: queryParams });
+        close();
     } else {
         // Handle case where there is no image or URL provided
         alert('Please upload an image or provide an image URL first.');
