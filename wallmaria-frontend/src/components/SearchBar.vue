@@ -19,6 +19,7 @@
 import { ref, Ref } from 'vue';
 import imageSearchIcon from '../assets/image-search-icon.png';
 import ImageSearchModal from './ImageSearchModal.vue';
+import { useRouter } from 'vue-router';
 
 interface ImageSearchModalInterface {
     isOpen: boolean;
@@ -26,9 +27,13 @@ interface ImageSearchModalInterface {
 
 const searchQuery = ref('');
 const imageSearchModal = ref<Ref<ImageSearchModalInterface> | null>(null);
+const router = useRouter();
 
 const search = () => {
-    alert(`Searching for: ${searchQuery.value}`);
+    console.log('Searching for: ', searchQuery.value)
+    const queryParams: Record<string, string> = {};
+    queryParams['q'] = searchQuery.value;
+    router.push({ name: 'SearchResults', query: queryParams });
 };
 
 const openImageSearchModal = () => {

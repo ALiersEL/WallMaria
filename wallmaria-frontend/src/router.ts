@@ -12,9 +12,9 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('./pages/About.vue'),
     },
     {
-        path: '/search-results',
-        name: 'ImageSearchResults',
-        component: () => import('./pages/ImageSearchResults.vue'), // Ensure you have this Vue file created
+        path: '/search',
+        name: 'SearchResults',
+        component: () => import('./pages/SearchResults.vue'), 
     },
 ];
 
