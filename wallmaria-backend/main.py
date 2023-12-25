@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 
-from models import Post, PostInDB, UploadResponse
+from models import Post, PostInDB, UploadResponse, TagInfo
 from bson import ObjectId
 
 import pymongo
@@ -16,6 +16,7 @@ import io
 import uuid
 import json
 import hashlib
+from collections import Counter
 from PIL import Image
 from utils import _transform
 from config import config
@@ -59,7 +60,7 @@ async def get_posts(limit: int = 10, skip: int = 0):
     posts = await post_mongo.find({"rating": {"$in": ["g"]}}).sort("score", -1).limit(limit).skip(skip).to_list(length=limit)
     return posts
 
-@app.post("/search_by_image_dep", response_model=list[Post])
+@app.post("/search_by_image_dep", response_model=list[Post], deprecated=True)
 async def search_images_by_image(file: UploadFile = File(...), top_k: int = 5):
     """
     根据图片查询相似的图片。
@@ -91,7 +92,7 @@ async def search_images_by_image(file: UploadFile = File(...), top_k: int = 5):
 
     return posts
 
-@app.post("/upload_text_dep", response_model=UploadResponse)
+@app.post("/upload_text_dep", response_model=UploadResponse, deprecated=True)
 async def upload_text(text: str):
     """
     上传文本并缓存特征，返回 token。
@@ -108,7 +109,7 @@ async def upload_text(text: str):
 
     return {"token": token}
 
-@app.post("/upload_image_dep", response_model=UploadResponse)
+@app.post("/upload_image_dep", response_model=UploadResponse, deprecated=True)
 async def upload_image(file: UploadFile = File(...)):
     """
     上传图片并缓存特征，返回 token。
@@ -130,7 +131,7 @@ async def upload_image(file: UploadFile = File(...)):
 
     return {"token": token}
 
-@app.get("/get_results_dep", response_model=list[Post])
+@app.get("/get_results_dep", response_model=list[Post], deprecated=True)
 async def get_results(token: str, page: int = 1, page_size: int = 10):
     """
     使用 token 获取搜索结果的不同页。
@@ -149,12 +150,17 @@ async def get_results(token: str, page: int = 1, page_size: int = 10):
     return posts
 
 @app.get("/search_by_text", response_model=list[Post])
-async def search_by_text(text: str, page: int = 1, page_size: int = 10):
+async def search_by_text(text: str, page: int = 1, page_size: int = 10, neg_text: str = None, neg_weight: float = 0.5):
     """
     根据文本搜索相似的图片，并缓存文本特征。
     """
     # 使用文本内容作为 Redis 缓存的键
     features = await get_text_cache(text)
+    neg_features = await get_text_cache(neg_text) if neg_text else None
+    
+    # 混合特征
+    if neg_features is not None:
+        features -= neg_weight * neg_features
 
     # 在 Milvus 中搜索相似的图片
     image_ids = search_similar_images(post_milvus, features, page, page_size)
@@ -219,6 +225,58 @@ async def search_by_image_text(token: str, left: int, top: int, width: int, heig
     image_ids = search_similar_images(post_milvus, features, page, page_size)
     posts = await get_posts_from_ids(image_ids)
     return posts
+
+@app.get("/predict_image_info", response_model=list[TagInfo])
+async def predict_image_info(token: str, left: int, top: int, width: int, height: int, top_k: int = 10, threshold: float = 0.2):
+    """
+    提供图片信息的预测。
+    """
+    features = await get_crop_cache(token, left, top, width, height)
+    image_ids = search_similar_images(post_milvus, features, page=1, page_size=top_k)
+    posts = await get_posts_from_ids(image_ids)
+
+    # 统计 tags 频率
+    tag_counter = Counter()
+    tag_type = {}
+    for post in posts:
+        # tag_string_character
+        characters = post["tag_string_character"].split()
+        tag_counter.update(characters)
+        tag_type.update({character: "character" for character in characters})
+        # tag_string_artist
+        artists = post["tag_string_artist"].split()
+        tag_counter.update(artists)
+        tag_type.update({artist: "artist" for artist in artists})
+        # tag_string_copyright
+        copy_rights = post["tag_string_copyright"].split()
+        tag_counter.update(copy_rights)
+        tag_type.update({copy_right: "copyright" for copy_right in copy_rights})
+
+    # 找出超过阈值的 tags
+    total_count = len(posts)
+    relevant_tags = [tag for tag, count in tag_counter.items() if count / total_count >= threshold]
+
+    # 构建响应
+    tag_infos = []
+    for tag in relevant_tags:
+        if tag == "original":
+            continue
+        # 找出包含该 tag 相似度最高的图片 & 实际上就是第一次出现的图片
+        highest_similar_post = next(post for post in posts if tag in post["tag_string"])
+        tag_infos.append(
+            TagInfo(
+                type=tag_type[tag],
+                name=tag,
+                preview_url=highest_similar_post["preview_file_url"],
+                source=highest_similar_post["source"],
+                occurrences=tag_counter[tag]
+            )
+        )
+
+    # 按照 occurrences 降序排序
+    tag_infos.sort(key=lambda tag_info: tag_info.occurrences, reverse=True)
+
+    return tag_infos
 
 async def get_posts_from_ids(image_ids):
     # 在 MongoDB 中查询图片信息

@@ -14,6 +14,9 @@ class Post(BaseModel):
     source: str
     image_width: int
     image_height: int
+    tag_string_character: str
+    tag_string_copyright: str
+    tag_string_artist: str
     file_url: str
     large_file_url: str
     preview_file_url: str
@@ -90,3 +93,10 @@ class PostInDB(Post):
 
 class UploadResponse(BaseModel):
     token: str
+
+class TagInfo(BaseModel):
+    type: str
+    name: str
+    preview_url: str
+    source: str
+    occurrences: int
