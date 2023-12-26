@@ -65,25 +65,25 @@ const dragLeave = () => {
 const getImageToken = async (image: File | Blob) => {
     const formData = new FormData();
     formData.append('file', image, 'image.png');
-    fetch('/api/upload_image', {
-        method: 'POST',
-        body: formData,
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log(data)
-            // Store the token in local storage
-            localStorage.setItem('imageToken', data.token);
-            imageToken.value = data.token;
-        })
-        .catch(error => {
-            console.error('Error uploading image:', error);
+
+    try {
+        const response = await fetch('/api/upload_image', {
+            method: 'POST',
+            body: formData,
         });
+
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+
+        const data = await response.json();
+        localStorage.setItem('imageToken', data.token);
+        imageToken.value = data.token;
+        return data.token; // Return the token
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        throw error; // Propagate the error
+    }
 };
 
 const displayImage = (file: File) => {
@@ -128,35 +128,45 @@ const removeImage = () => {
 };
 
 const downloadImageAndGetToken = async (imageUrl: string) => {
-    fetch(imageUrl)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            // Retrieve a Blob object of the image
-            return response.blob();
-        })
-        .then(blob => {
-            getImageToken(blob);
-        })
-        .catch(error => {
-            console.error('Error downloading or storing image:', error);
-        });
+    try {
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const blob = await response.blob();
+        return await getImageToken(blob); // Return the token from getImageToken
+    } catch (error) {
+        console.error('Error downloading or storing image:', error);
+        throw error; // Propagate the error
+    }
 }
 
 const search = async () => {
-    console.log(imageLink.value)
-    if(imageLink.value) {
-        await downloadImageAndGetToken(imageLink.value);
-    }
-    if (imageToken.value) {
-        const queryParams: Record<string, string> = {};
-        queryParams['token'] = imageToken.value!;
-        router.push({ name: 'SearchResults', query: queryParams });
-        close();
-    } else {
-        // Handle case where there is no image or URL provided
-        alert('Please upload an image or provide an image URL first.');
+    console.log(imageLink.value);
+    try {
+        if (imageToken.value) {
+            const queryParams: Record<string, string> = {};
+            queryParams['token'] = imageToken.value!;
+            router.push({ name: 'SearchResults', query: queryParams });
+            close();
+            return;
+        } else if (imageLink.value) {
+            const token = await downloadImageAndGetToken(imageLink.value); // Wait for the token
+            console.log(token);
+            if (token) {
+                const queryParams: Record<string, string> = {};
+                queryParams['token'] = token;
+                router.push({ name: 'SearchResults', query: queryParams });
+                close();
+            } else {
+                alert('Failed to retrieve image token.');
+            }
+        } else {
+            alert('Please upload an image or provide an image URL first.');
+        }
+    } catch (error) {
+        console.error('Error in search process:', error);
+        alert('An error occurred during the search process.');
     }
 };
 

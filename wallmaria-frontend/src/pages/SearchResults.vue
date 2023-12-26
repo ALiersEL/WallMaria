@@ -7,7 +7,7 @@
             </div>
             <div class="flex-1 flex justify-end">
                 <input type="text" class="border rounded-full w-1/2 h-10 pl-5 pr-10 text-sm focus:outline-none" v-model="searchQuery"
-                        @keyup.enter="search" placeholder="Search WallMaria or type a URL" style="max-width: calc(50% - 90px);" />
+                        @keyup.enter="onInputEnter" placeholder="Search WallMaria or type a URL" style="max-width: calc(50% - 90px);" />
                 <button class="bg-blue-500 text-white px-4 py-2 rounded ml-4" @click="openImageSearchModal">
                     Upload
                 </button>
@@ -37,17 +37,24 @@
             </div>
 
 
-            <!-- Search Results with Masonry Layout -->
-            <div class="w-1/2 p-4 flex items-start overflow-auto max-h-[calc(100vh-64px)]" ref="masonryColumns">
-                <div class="w-1/3 pr-2" v-for="(column, index) in columns" :key="column.id" ref="column">
-                    <div v-for="image in column.images" :key="image.id" class="mb-4">
-                        <img :src="image.src" :alt="image.alt" class="h-auto rounded-lg mb-2" />
-                        <div class="text-sm" ref="imageInfo">
-                            <h3 class="max-w-full break-words line-clamp-1">{{ image.title }}</h3>
-                            <p class="max-w-full break-words line-clamp-2">{{ image.source }}</p>
+            <div class="w-1/2 container mx-auto overflow-auto max-h-[calc(100vh-64px)]">
+                <div class="grid grid-cols-4 gap-4 ml-6 mt-4">
+                    <ProfileBlock v-for="info in predictionInfo" :key="info.name" :name="info.name" :avatarUrl="info.previewUrl" :percentage="info.occurrences * 10" :source="info.source" />
+                </div>
+                
+                <!-- Search Results with Masonry Layout -->
+                <div class="w-full p-4 flex items-start" ref="masonryColumns">
+                    <div class="w-1/3 pr-2" v-for="(column, index) in columns" :key="column.id" ref="column">
+                        <div v-for="image in column.images" :key="image.id" class="mb-4">
+                            <a :href="image.source" target="_blank" class="block">
+                                <img :src="image.src" :alt="image.alt" class="h-auto rounded-lg mb-2" />
+                            </a>
+                            <div class="text-sm" ref="imageInfo">
+                                <p class="max-w-full break-words line-clamp-3">{{ image.tagStringCharacter }}</p>
+                            </div>
                         </div>
+                        <div :ref="(setSentinelRef(index) as VNodeRef)"></div> <!-- 哨兵元素 -->
                     </div>
-                    <div :ref="(setSentinelRef(index) as VNodeRef)"></div> <!-- 哨兵元素 -->
                 </div>
             </div>
         </div>
@@ -60,6 +67,7 @@ import { useRoute, useRouter } from "vue-router";
 import BigNumber from "bignumber.js";
 import ImageUpload from "../components/ImageUpload.vue";
 import ImageSearchModal from "../components/ImageSearchModal.vue";
+import ProfileBlock from "../components/ProfileBlock.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -80,21 +88,30 @@ interface Image {
     source: string;
     width: number;
     height: number;
+    tagStringCharacter: string;
 }
-const page = ref<number>(1);
+
 const imageToken = ref<string | null>(null);
 const searchQuery = ref<string | null>(null);
-const imageLoaded = ref(false);
-let rank = 0;
-let isRequestPending = false;
-
+let page: number = 1;
+let imageLoaded: boolean = false;
+let rank: number = 0;
+let isRequestPending: boolean = false;
+interface PredictionInfo {
+    type: string;
+    name: string;
+    previewUrl: string;
+    source: string;
+    occurrences: number;
+}
+let predictionInfo: PredictionInfo[] = [];
 
 const clearImages = () => {
     // 清空
     columns.value.forEach((column) => {
         column.images = [];
     });
-    page.value = 1;
+    page = 1;
     rank = 0;
     columnHeights.value = [new BigNumber('0'), new BigNumber('0'), new BigNumber('0')];
 };
@@ -124,6 +141,28 @@ watch(
     { immediate: true }
 );
 
+// Watch Input Image Path from null to not null
+watch(
+    inputImagePath,
+    (newInputImagePath, oldInputImagePath) => {
+        // console.log("watch inputImagePath", newInputImagePath, oldInputImagePath);
+        if (newInputImagePath && !oldInputImagePath) {
+            nextTick().then(() => {
+                imageElement.value?.addEventListener('load', () => {
+                    // console.log("imageElement.value?.addEventListener('load'");
+                    selectionBox.left = imageElement.value?.offsetLeft!;
+                    selectionBox.top = imageElement.value?.offsetTop!;
+                    selectionBox.width = imageElement.value?.offsetWidth!;
+                    selectionBox.height = imageElement.value?.offsetHeight!;
+                    imageLoaded = true;
+                    loadMoreImages();
+                });
+            });
+        }
+    },
+    { immediate: true }
+);
+
 const imageElement = ref<HTMLImageElement | null>(null);
 const selectionBox = reactive({
     left: 0,
@@ -148,9 +187,12 @@ const getNaturalCropBox = () => {
 
 const loadMoreImages = async () => {
     if (!imageToken.value && !searchQuery.value) return;
+    if (page == 1 && imageToken.value) {
+        fetchPrediction();
+    }
 
     if(imageToken.value && searchQuery.value) {
-        
+        fetchImagesByImageTokenAndSearchQuery();
     }
     else if(imageToken.value) {
         fetchImagesByImageToken();
@@ -158,6 +200,92 @@ const loadMoreImages = async () => {
     else if (searchQuery.value) {   
         fetchImagesBySearchQuery();
     }
+};
+
+const fetchPrediction = async () => {
+    if(!imageToken.value) return;
+    // if(isRequestPending) return;
+    const cropBox = getNaturalCropBox();
+    if(cropBox.width === 0 || cropBox.height === 0 || isNaN(cropBox.width) || isNaN(cropBox.height)) return;
+
+    // isRequestPending = true;
+    const params = new URLSearchParams({
+        token: imageToken.value,
+        left: cropBox.left.toString(),
+        top: cropBox.top.toString(),
+        width: cropBox.width.toString(),
+        height: cropBox.height.toString(),
+    });
+
+    // console.log("fetchPrediction", params.toString());
+
+    fetch('api/predict_image_info?' + params.toString())
+        .then((response) => response.json())
+        .then((data) => {
+            predictionInfo = data.map((item: any) => ({
+                type: item.type,
+                name: item.name,
+                previewUrl: item.preview_url,
+                source: item.source,
+                occurrences: item.occurrences,
+            }));
+            // isRequestPending = false;
+        })
+        .catch((error) => {
+            console.error("Error fetching images:", error);
+            // isRequestPending = false;
+        });
+};
+
+const fetchImagesByImageTokenAndSearchQuery = async () => {
+    if(!imageToken.value || !searchQuery.value) return;
+    if(isRequestPending) return;
+    const cropBox = getNaturalCropBox();
+    if(cropBox.width === 0 || cropBox.height === 0 || isNaN(cropBox.width) || isNaN(cropBox.height)) return;
+
+    isRequestPending = true;
+    const params = new URLSearchParams({
+        token: imageToken.value,
+        text: searchQuery.value,
+        page: page.toString(),
+        left: cropBox.left.toString(),
+        top: cropBox.top.toString(),
+        width: cropBox.width.toString(),
+        height: cropBox.height.toString(),
+        alpha: "0.5",
+    });
+
+    console.log("loadMoreImages", params.toString());
+
+    fetch('api/search_by_image_text?' + params.toString())
+        .then((response) => response.json())
+        .then((data) => {
+            const formattedData = data.map((item: any) => ({
+                id: item.id,
+                title: item.id,
+                alt: item.uploader_id,
+                src: item.large_file_url,
+                source: item.source,
+                width: item.image_width,
+                height: item.image_height,
+                tagStringCharacter: item.tag_string_character.replace(/_/g, " ")
+            }));
+            for (const image of formattedData) {
+                image.title = image.title + " " + rank;
+                rank++;
+            }
+            console.log(data.map((item: any) => item.id));
+            // Add images to the page, adjust the timeout as needed
+            formattedData.forEach((image: Image) => {
+                addImageToShortestColumn(image);
+            });
+            page++;
+            isRequestPending = false;
+        })
+        .catch((error) => {
+            console.error("Error fetching images:", error);
+            isRequestPending = false;
+        });
 };
 
 const fetchImagesByImageToken = async () => {
@@ -169,7 +297,7 @@ const fetchImagesByImageToken = async () => {
     isRequestPending = true;
     const params = new URLSearchParams({
         token: imageToken.value,
-        page: page.value.toString(),
+        page: page.toString(),
         left: cropBox.left.toString(),
         top: cropBox.top.toString(),
         width: cropBox.width.toString(),
@@ -189,6 +317,7 @@ const fetchImagesByImageToken = async () => {
                 source: item.source,
                 width: item.image_width,
                 height: item.image_height,
+                tagStringCharacter: item.tag_string_character.replace(/_/g, " ")
             }));
             for (const image of formattedData) {
                 image.title = image.title + " " + rank;
@@ -199,7 +328,7 @@ const fetchImagesByImageToken = async () => {
             formattedData.forEach((image: Image) => {
                 addImageToShortestColumn(image);
             });
-            page.value++;
+            page++;
             isRequestPending = false;
         })
         .catch((error) => {
@@ -216,7 +345,7 @@ const fetchImagesBySearchQuery = async () => {
 
     const params = new URLSearchParams({
         text: searchQuery.value,
-        page: page.value.toString(),
+        page: page.toString(),
     });
 
     console.log("loadMoreImages", params.toString());
@@ -242,7 +371,7 @@ const fetchImagesBySearchQuery = async () => {
                 image.title = image.title + " " + rank;
                 rank++;
             }
-            page.value++;
+            page++;
             isRequestPending = false;
         })
         .catch((error) => {
@@ -273,6 +402,24 @@ const createObserver = () => {
             observer.observe(sentinelRef.value);
         }
     });
+};
+
+const onInputEnter = () => {
+    if (searchQuery.value) {
+        let params: any = {
+            q: searchQuery.value,
+        };
+        if (imageToken.value) {
+            params['token'] = imageToken.value;
+        }
+        router.push({ query: params });
+    }
+    else if (imageToken.value) {
+        let params: any = {
+            token: imageToken.value,
+        };
+        router.push({ query: params });
+    }
 };
 
 const dragging = ref(false);
@@ -368,16 +515,8 @@ const selectionStyle = computed(() => ({
 }));
 
 onMounted(() => {
+    console.log("onMounted");
     createObserver();
-    // 等待图片加载完成后，设置选择框的初始位置
-    imageElement.value?.addEventListener('load', () => {
-        selectionBox.left = imageElement.value?.offsetLeft!;
-        selectionBox.top = imageElement.value?.offsetTop!;
-        selectionBox.width = imageElement.value?.offsetWidth!;
-        selectionBox.height = imageElement.value?.offsetHeight!;
-        imageLoaded.value = true;
-        loadMoreImages();
-    });
 });
 
 // // Add a computed property for the overlay style

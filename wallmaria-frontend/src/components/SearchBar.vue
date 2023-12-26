@@ -30,7 +30,6 @@ const imageSearchModal = ref<Ref<ImageSearchModalInterface> | null>(null);
 const router = useRouter();
 
 const search = () => {
-    console.log('Searching for: ', searchQuery.value)
     const queryParams: Record<string, string> = {};
     queryParams['q'] = searchQuery.value;
     router.push({ name: 'SearchResults', query: queryParams });
