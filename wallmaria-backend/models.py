@@ -14,6 +14,7 @@ class Post(BaseModel):
     source: str
     image_width: int
     image_height: int
+    media_asset: dict | None
     tag_string_character: str
     tag_string_copyright: str
     tag_string_artist: str
@@ -84,7 +85,6 @@ class PostInDB(Post):
     tag_count_meta: int
     has_large: bool
     has_visible_children: bool
-    media_asset: dict | None
     tag_string_general: str
     tag_string_character: str
     tag_string_copyright: str

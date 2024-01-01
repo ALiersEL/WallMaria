@@ -42,7 +42,7 @@ def search_similar_images(milvus_client: Collection, features, page=1, page_size
     search_params = {
         "data": features,
         "anns_field": "feature_vector",
-        "param": {"metric_type": "COSINE", "index_type": "IVF_FLAT", "offset": offset},
+        "param": {"metric_type": "COSINE", "index_type": "IVF_FLAT", "offset": offset, "params": {"nprobe": 256}},
         "limit": page_size,
         "expr": "rating in ['g', 's']",
         "output_fields": ["image_id"]
