@@ -1,7 +1,7 @@
 import torch
 import clip.model
 
-def load_clip_model(checkpoint_path="checkpoints/latest.pth", device="cpu") -> clip.model.CLIP:
+def load_clip_model(checkpoint_path="checkpoints/latest.pth", device="cuda") -> clip.model.CLIP:
     """
     加载并返回一个预训练的 CLIP 模型。
 
@@ -16,7 +16,7 @@ def load_clip_model(checkpoint_path="checkpoints/latest.pth", device="cpu") -> c
     model, preprocess = clip.load("ViT-L/14", device=device)
 
     # 加载自定义模型权重
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device)['model_state_dict'])
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     model.eval()
 
     return model
