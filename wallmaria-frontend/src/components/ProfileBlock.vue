@@ -21,10 +21,22 @@ interface ProfileBlockProps {
 }
 
 const profile: ProfileBlockProps = defineProps({
-    name: String,
-    avatarUrl: String,
-    percentage: Number,
-    source: String,
+    name: {
+        type: String,
+        required: true
+    },
+    avatarUrl: {
+        type: String,
+        required: true
+    },
+    percentage: {
+        type: Number,
+        required: true
+    },
+    source: {
+        type: String,
+        required: true
+    }
 });
 </script>
   

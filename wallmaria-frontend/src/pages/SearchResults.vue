@@ -6,12 +6,13 @@
                 <h1 class="text-xl font-bold cursor-pointer" @click="navigateToHome">WallMaria</h1>
             </div>
             <div class="flex-1 flex justify-end">
-                <input type="text" class="border rounded-full w-1/2 h-10 pl-5 pr-10 text-sm focus:outline-none" v-model="searchQuery"
-                        @keyup.enter="onInputEnter" placeholder="Search WallMaria or type a URL" style="max-width: calc(50% - 90px);" />
+                <input type="text" class="border rounded-full w-1/2 h-10 pl-5 pr-10 text-sm focus:outline-none"
+                    v-model="searchQuery" @keyup.enter="onInputEnter" placeholder="Search WallMaria or type a URL"
+                    style="max-width: calc(50% - 90px);" />
                 <button class="bg-blue-500 text-white px-4 py-2 rounded ml-4" @click="openImageSearchModal">
                     Upload
                 </button>
-                <ImageSearchModal ref="imageSearchModal"/>
+                <ImageSearchModal ref="imageSearchModal" />
             </div>
         </header>
 
@@ -19,7 +20,7 @@
         <div class="flex flex-grow overflow-auto">
             <!-- Input Image Display -->
             <div v-if="inputImagePath === null" class="w-1/2 h-full flex justify-center items-center ">
-                <ImageUpload class="w-2/3 h-4/5"/>
+                <ImageUpload class="w-2/3 h-4/5" />
             </div>
             <div v-else class="bg-stone-800 w-1/2 p-24 flex items-center justify-center">
                 <img :src="inputImagePath!" alt="Input" class="max-w-full max-h-full w-auto h-auto rounded"
@@ -27,7 +28,8 @@
                 <!-- Overlay Element -->
                 <div class="overlay" :style="overlayStyle"></div>
                 <!-- Selection Box -->
-                <div v-if="imageLoaded" class="border-4 border-orange-500 absolute cursor-move" :style="selectionStyle" @mousedown="startDrag">
+                <div v-if="imageLoaded" class="border-4 border-orange-500 absolute cursor-move" :style="selectionStyle"
+                    @mousedown="startDrag">
                     <!-- Resize Handles -->
                     <div class="handle top-left" @mousedown.prevent.stop="initResize('top-left', $event)"></div>
                     <div class="handle top-right" @mousedown.prevent.stop="initResize('top-right', $event)"></div>
@@ -39,9 +41,10 @@
 
             <div class="w-1/2 container mx-auto overflow-auto max-h-[calc(100vh-64px)]">
                 <div class="grid grid-cols-4 gap-4 ml-6 mt-4">
-                    <ProfileBlock v-for="info in predictionInfo" :key="info.name" :name="info.name" :avatarUrl="info.previewUrl" :percentage="info.occurrences * 10" :source="info.source" />
+                    <ProfileBlock v-for="info in predictionInfo" :key="info.name" :name="info.name"
+                        :avatarUrl="info.previewUrl" :percentage="info.occurrences * 10" :source="info.source" />
                 </div>
-                
+
                 <!-- Search Results with Masonry Layout -->
                 <div class="w-full p-4 flex items-start" ref="masonryColumns">
                     <div class="w-1/3 pr-2" v-for="(column, index) in columns" :key="column.id" ref="column">
@@ -71,7 +74,7 @@ import ProfileBlock from "../components/ProfileBlock.vue";
 
 const route = useRoute();
 const router = useRouter();
-const inputImagePath = ref<string| null>(null);
+const inputImagePath = ref<string | null>(null);
 const columns = ref<any[]>([
     { id: 1, images: [] },
     { id: 2, images: [] },
@@ -191,22 +194,22 @@ const loadMoreImages = async () => {
         fetchPrediction();
     }
 
-    if(imageToken.value && searchQuery.value) {
+    if (imageToken.value && searchQuery.value) {
         fetchImagesByImageTokenAndSearchQuery();
     }
-    else if(imageToken.value) {
+    else if (imageToken.value) {
         fetchImagesByImageToken();
     }
-    else if (searchQuery.value) {   
+    else if (searchQuery.value) {
         fetchImagesBySearchQuery();
     }
 };
 
 const fetchPrediction = async () => {
-    if(!imageToken.value) return;
+    if (!imageToken.value) return;
     // if(isRequestPending) return;
     const cropBox = getNaturalCropBox();
-    if(cropBox.width === 0 || cropBox.height === 0 || isNaN(cropBox.width) || isNaN(cropBox.height)) return;
+    if (cropBox.width === 0 || cropBox.height === 0 || isNaN(cropBox.width) || isNaN(cropBox.height)) return;
 
     // isRequestPending = true;
     const params = new URLSearchParams({
@@ -237,11 +240,45 @@ const fetchPrediction = async () => {
         });
 };
 
+const selectBestImageUrl = (data: any) => {
+    const isOriginalInPath = (url: string) => /\/original\//.test(url);
+
+    if (!isOriginalInPath(data.file_url)) {
+        return data.file_url;
+    } else if (!isOriginalInPath(data.large_file_url)) {
+        return data.large_file_url;
+    } else {
+        let nonOriginalVariants = data.media_asset.variants.filter((variant: { type: string; }) => variant.type !== 'original');
+        if (nonOriginalVariants.length === 0) {
+            return null; // No suitable variant found
+        }
+        let highestResolutionVariant = nonOriginalVariants.reduce((max: { width: number; height: number; }, variant: { width: number; height: number; }) => 
+            (variant.width * variant.height > max.width * max.height) ? variant : max
+        );
+        return highestResolutionVariant.url;
+    }
+}
+
+
+// 接收一个json对象，转化成Image类型
+const formatData = (dataArray: any[]) => {
+    return dataArray.map(item => ({
+        id: item.id,
+        title: item.id,
+        alt: item.id,
+        src: selectBestImageUrl(item),
+        source: item.source,
+        width: item.image_width,
+        height: item.image_height,
+        tagStringCharacter: item.tag_string_character.replace(/_/g, " ")
+    }));
+}
+
 const fetchImagesByImageTokenAndSearchQuery = async () => {
-    if(!imageToken.value || !searchQuery.value) return;
-    if(isRequestPending) return;
+    if (!imageToken.value || !searchQuery.value) return;
+    if (isRequestPending) return;
     const cropBox = getNaturalCropBox();
-    if(cropBox.width === 0 || cropBox.height === 0 || isNaN(cropBox.width) || isNaN(cropBox.height)) return;
+    if (cropBox.width === 0 || cropBox.height === 0 || isNaN(cropBox.width) || isNaN(cropBox.height)) return;
 
     isRequestPending = true;
     const params = new URLSearchParams({
@@ -257,19 +294,11 @@ const fetchImagesByImageTokenAndSearchQuery = async () => {
 
     console.log("loadMoreImages", params.toString());
 
+
     fetch('api/search_by_image_text?' + params.toString())
         .then((response) => response.json())
         .then((data) => {
-            const formattedData = data.map((item: any) => ({
-                id: item.id,
-                title: item.id,
-                alt: item.uploader_id,
-                src: item.large_file_url,
-                source: item.source,
-                width: item.image_width,
-                height: item.image_height,
-                tagStringCharacter: item.tag_string_character.replace(/_/g, " ")
-            }));
+            const formattedData = formatData(data);
             for (const image of formattedData) {
                 image.title = image.title + " " + rank;
                 rank++;
@@ -289,10 +318,10 @@ const fetchImagesByImageTokenAndSearchQuery = async () => {
 };
 
 const fetchImagesByImageToken = async () => {
-    if(!imageToken.value) return;
-    if(isRequestPending) return;
+    if (!imageToken.value) return;
+    if (isRequestPending) return;
     const cropBox = getNaturalCropBox();
-    if(cropBox.width === 0 || cropBox.height === 0 || isNaN(cropBox.width) || isNaN(cropBox.height)) return;
+    if (cropBox.width === 0 || cropBox.height === 0 || isNaN(cropBox.width) || isNaN(cropBox.height)) return;
 
     isRequestPending = true;
     const params = new URLSearchParams({
@@ -309,16 +338,7 @@ const fetchImagesByImageToken = async () => {
     fetch('api/search_by_crop?' + params.toString())
         .then((response) => response.json())
         .then((data) => {
-            const formattedData = data.map((item: any) => ({
-                id: item.id,
-                title: item.id,
-                alt: item.uploader_id,
-                src: item.large_file_url,
-                source: item.source,
-                width: item.image_width,
-                height: item.image_height,
-                tagStringCharacter: item.tag_string_character.replace(/_/g, " ")
-            }));
+            const formattedData = formatData(data);
             for (const image of formattedData) {
                 image.title = image.title + " " + rank;
                 rank++;
@@ -338,8 +358,8 @@ const fetchImagesByImageToken = async () => {
 };
 
 const fetchImagesBySearchQuery = async () => {
-    if(!searchQuery.value) return;
-    if(isRequestPending) return;
+    if (!searchQuery.value) return;
+    if (isRequestPending) return;
 
     isRequestPending = true;
 
@@ -354,15 +374,7 @@ const fetchImagesBySearchQuery = async () => {
     fetch('api/search_by_text?' + params.toString())
         .then((response) => response.json())
         .then((data) => {
-            const formattedData = data.map((item: any) => ({
-                id: item.id,
-                title: item.id,
-                alt: item.uploader_id,
-                src: item.large_file_url,
-                source: item.source,
-                width: item.image_width,
-                height: item.image_height,
-            }));
+            const formattedData = formatData(data);
             // Add images to the page, adjust the timeout as needed
             formattedData.forEach((image: Image) => {
                 addImageToShortestColumn(image);
@@ -655,5 +667,4 @@ img {
 .break-inside-avoid {
     break-inside: avoid;
     page-break-inside: avoid;
-}
-</style>
+}</style>

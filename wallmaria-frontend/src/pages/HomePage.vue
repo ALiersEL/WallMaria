@@ -14,11 +14,11 @@
 </template>
   
 <script setup lang="ts">
-import { ref } from 'vue';
+// import { ref } from 'vue';
 import SearchBar from '../components/SearchBar.vue';
 // import ActionButtons from '../components/ActionButtons.vue';
 
-const language = ref('日本語');
+// const language = ref('日本語');
 </script>
   
 <style scoped>

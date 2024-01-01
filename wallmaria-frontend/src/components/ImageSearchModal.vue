@@ -79,6 +79,7 @@ const getImageToken = async (image: File | Blob) => {
         const data = await response.json();
         localStorage.setItem('imageToken', data.token);
         imageToken.value = data.token;
+        console.log(data)
         return data.token; // Return the token
     } catch (error) {
         console.error('Error uploading image:', error);
@@ -144,6 +145,7 @@ const downloadImageAndGetToken = async (imageUrl: string) => {
 const search = async () => {
     console.log(imageLink.value);
     try {
+        console.log(imageToken.value)
         if (imageToken.value) {
             const queryParams: Record<string, string> = {};
             queryParams['token'] = imageToken.value!;
