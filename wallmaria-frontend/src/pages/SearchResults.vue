@@ -6,9 +6,32 @@
                 <h1 class="text-xl font-bold cursor-pointer" @click="navigateToHome">WallMaria</h1>
             </div>
             <div class="flex-1 flex justify-end">
-                <input type="text" class="border rounded-full w-1/2 h-10 pl-5 pr-10 text-sm focus:outline-none"
-                    v-model="searchQuery" @keyup.enter="onInputEnter" placeholder="Search WallMaria or type a URL"
-                    style="max-width: calc(50% - 90px);" />
+                <div class="relative w-1/2" style="max-width: calc(50% - 90px);">
+                    <input type="text"
+                        ref="searchInputRef"
+                        :class="{'rounded-t-lg border-b-0': isInputFocused || isDropdownActive, 'rounded-lg': !(isInputFocused || isDropdownActive)}"
+                        class="border w-full h-10 pl-5 pr-10 text-sm focus:outline-none"
+                        v-model="searchQuery"
+                        @focus="isInputFocused = true"
+                        @blur="isInputFocused = false"
+                        @keyup.enter="onInputEnter"
+                        placeholder="Search WallMaria or type a URL" />
+                    <!-- Dropdown for Alpha Value -->
+                    <div v-if="isInputFocused || isDropdownActive"
+                        class="absolute bg-white border border-gray-200 border-t-0 rounded w-full shadow-lg py-5 z-10"
+                        @mouseenter="isDropdownActive = true"
+                        @mouseleave="isDropdownActive = false"
+                        @mousedown="refocusSearchInput"
+                        >
+                        <div class="flex justify-center items-center w-full">
+                            <div class="w-1/2 text-center">
+                                <label for="alphaRange" class="text-sm font-medium block">Alpha: {{ alphaValue }}</label>
+                                <input type="range" id="alphaRange" min="0" max="1" step="0.1" v-model="alphaValue"
+                                    class="w-full cursor-pointer mt-1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <button class="bg-blue-500 text-white px-4 py-2 rounded ml-4" @click="openImageSearchModal">
                     Upload
                 </button>
@@ -108,6 +131,18 @@ interface PredictionInfo {
     occurrences: number;
 }
 let predictionInfo: PredictionInfo[] = [];
+const alphaValue = ref(0.5);
+const searchInputRef = ref<HTMLInputElement | null>(null);
+const isInputFocused = ref(false);
+const isDropdownActive = ref(false);
+
+const refocusSearchInput = () => {
+    setTimeout(() => {
+        if (searchInputRef.value) {
+            searchInputRef.value.focus();
+        }
+    }, 100);
+};
 
 const clearImages = () => {
     // 清空
@@ -289,7 +324,7 @@ const fetchImagesByImageTokenAndSearchQuery = async () => {
         top: cropBox.top.toString(),
         width: cropBox.width.toString(),
         height: cropBox.height.toString(),
-        alpha: "0.5",
+        alpha: alphaValue.value.toString(),
     });
 
     console.log("loadMoreImages", params.toString());
@@ -420,6 +455,7 @@ const onInputEnter = () => {
     if (searchQuery.value) {
         let params: any = {
             q: searchQuery.value,
+            alpha: alphaValue.value,
         };
         if (imageToken.value) {
             params['token'] = imageToken.value;
