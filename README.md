@@ -65,11 +65,11 @@
     "password": "<your_password>"
   },
   "clip": {
-    "path": "checkpoints/latest_1219_21.pth"
+    "path": "checkpoints/<your_checkpoint>.pth"
   }
 }
 ```
-请将<your_password>和<your_host>替换为实际的密码和主机地址。
+请将<your_password>, <your_host>和<your_checkpoint>替换为实际的密码、主机地址和检查点名称。
 
 ## 路线图
 
