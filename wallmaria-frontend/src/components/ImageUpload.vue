@@ -1,5 +1,5 @@
 <template>
-    <div class="modal-container relative"> <!-- 将模态容器的宽高设置为父 div 的一半 -->
+    <div class="modal-container relative"> 
         <div class="border-dashed border-2 border-gray-200 flex justify-center items-center relative h-full" @dragover.prevent
             @dragenter.prevent="dragEnter" @dragleave.prevent="dragLeave" @drop.prevent="handleDrop($event)"
             :class="{ 'bg-blue-100': isDragOver }">
@@ -18,12 +18,13 @@
   
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 const isDragOver = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 const uploadedImageBase64 = ref<string | null>(null);
 const imageToken = ref<string | null>(null);;
+const route = useRoute();
 const router = useRouter();
 
 const dragEnter = () => {
@@ -58,12 +59,14 @@ const getImageToken = async (image: File | Blob) => {
     }
 };
 
-const search = async () => {
+const search = () => {
     if (imageToken.value) {
         const queryParams: Record<string, string> = {};
+        if (route.query.q) {
+            queryParams['q'] = route.query.q as string;
+        }
         queryParams['token'] = imageToken.value!;
         router.push({ name: 'SearchResults', query: queryParams });
-        close();
     } else {
         // Handle case where there is no image or URL provided
         alert('Please upload an image or provide an image URL first.');
