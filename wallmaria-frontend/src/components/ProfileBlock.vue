@@ -1,7 +1,7 @@
 <template>
     <div class="flex items-start justify-start space-x-4">
         <!-- 头像 -->
-        <a :href="profile.source">
+        <a :href="profile.source == '' ? profile.avatarUrl : profile.source" target="_blank" rel="noopener noreferrer">
             <img class="w-12 h-12 rounded-full" :src="profile.avatarUrl" alt="Profile avatar" />
         </a>
         <!-- 名字和百分比 -->

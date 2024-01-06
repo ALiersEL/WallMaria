@@ -72,7 +72,7 @@
                 <div class="w-full p-4 flex items-start" ref="masonryColumns">
                     <div class="w-1/3 pr-2" v-for="(column, index) in columns" :key="column.id" ref="column">
                         <div v-for="image in column.images" :key="image.id" class="mb-4">
-                            <a :href="image.source" target="_blank" class="block">
+                            <a :href="image.source" target="_blank" rel="noopener noreferrer" class="block">
                                 <img :src="image.src" :alt="image.alt" class="h-auto rounded-lg mb-2" />
                             </a>
                             <div class="text-sm" ref="imageInfo">
@@ -183,11 +183,9 @@ watch(
 watch(
     inputImagePath,
     (newInputImagePath, oldInputImagePath) => {
-        // console.log("watch inputImagePath", newInputImagePath, oldInputImagePath);
         if (newInputImagePath && !oldInputImagePath) {
             nextTick().then(() => {
                 imageElement.value?.addEventListener('load', () => {
-                    // console.log("imageElement.value?.addEventListener('load'");
                     selectionBox.left = imageElement.value?.offsetLeft!;
                     selectionBox.top = imageElement.value?.offsetTop!;
                     selectionBox.width = imageElement.value?.offsetWidth!;
@@ -242,11 +240,10 @@ const loadMoreImages = async () => {
 
 const fetchPrediction = async () => {
     if (!imageToken.value) return;
-    // if(isRequestPending) return;
+
     const cropBox = getNaturalCropBox();
     if (cropBox.width === 0 || cropBox.height === 0 || isNaN(cropBox.width) || isNaN(cropBox.height)) return;
 
-    // isRequestPending = true;
     const params = new URLSearchParams({
         token: imageToken.value,
         left: cropBox.left.toString(),
@@ -255,7 +252,6 @@ const fetchPrediction = async () => {
         height: cropBox.height.toString(),
     });
 
-    // console.log("fetchPrediction", params.toString());
 
     fetch('api/predict_image_info?' + params.toString())
         .then((response) => response.json())
@@ -267,11 +263,10 @@ const fetchPrediction = async () => {
                 source: item.source,
                 occurrences: item.occurrences,
             }));
-            // isRequestPending = false;
+            console.log(predictionInfo);
         })
         .catch((error) => {
             console.error("Error fetching images:", error);
-            // isRequestPending = false;
         });
 };
 
@@ -567,7 +562,7 @@ onMounted(() => {
     createObserver();
 });
 
-// // Add a computed property for the overlay style
+// Add a computed property for the overlay style
 const overlayStyle = computed(() => {
     if (!imageElement.value) return {};
 
