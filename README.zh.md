@@ -1,4 +1,5 @@
 # WallMaria 二次元图片搜索引擎
+
 [English](README.md)
 
 
@@ -14,40 +15,37 @@
 
 按照以下简单步骤，您可以在本地快速启动并运行项目。
 
-### 前提条件
+### 克隆仓库
+
+```sh
+git clone https://github.com/ALiersEL/WallMaria.git
+```
+
+### 后端设置
+
+为节省时间，我们已经为您部署了一个后端服务器供您使用。您可以跳过后端设置，直接转到[前端设置](#前端设置)。但是，如果您想在本地运行后端，请按照以下步骤操作。
+
+#### 前提条件
 
 - Python 3.10 或更高版本
 - MongoDB
 - Redis
 - Milvus
 
-### 安装
+#### 后端安装
 
-1. 克隆仓库
-   ```sh
-   git clone https://github.com/ALiersEL/WallMaria.git
-   ```
-2. 进入项目目录
+1. 在WallMaria项目中导航至后端目录
    ```sh
    cd WallMaria/wallmaria-backend
    ```
-3. 安装所需包
+2. 安装所需包
    ```sh
    pip install -r requirements.txt
    ```
-4. 根据config.json文件设置环境变量或直接使用配置文件。
 
+#### 后端配置
 
-### 运行应用
-
-1. 启动后端服务器
-   ```sh
-   uvicorn main:app --port 8000 --reload
-   ```
-2. 在浏览器中访问 `http://localhost:8000` 以打开Web界面
-
-## 配置
-
+在 `wallmaria-backend` 目录下创建一个 `config.json` 文件。
 确保根据config.json文件配置您的服务。示例配置如下所示：
 ```json
 {
@@ -72,6 +70,83 @@
 }
 ```
 请将<your_password>, <your_host>和<your_checkpoint>替换为实际的密码、主机地址和检查点名称。
+
+#### 运行后端应用程序
+
+1. 启动后端服务器
+   ```sh
+   uvicorn main:app --port 8000 --reload
+   ```
+2. 在浏览器中访问 `http://localhost:8000` 以打开Web界面
+
+### 前端设置
+
+#### 前提条件
+
+- Node.js 14 或更高版本
+- npm（随Node.js一起提供）或 Yarn
+
+#### 前端安装
+
+1. 在WallMaria项目中导航至前端目录
+   ```sh
+   cd WallMaria/wallmaria-frontend
+   ```
+2. 安装依赖项
+   ```sh
+   npm install
+   ```
+   或者如果您使用Yarn
+   ```sh
+   yarn install
+   ```
+
+#### 前端配置
+
+前端应用程序预配置为连接到已部署的后端服务器。默认的后端URL已经在位于 `wallmaria-frontend` 目录的 `.env` 文件中设置。
+
+默认的 `.env` 配置：
+```sh
+VITE_APP_BACKEND_URL=http://wallrose.huox3.cn:7000
+```
+
+如果您希望使用自己的后端服务器，或者如果您有一个不同的后端URL，您可以相应地更新 `.env` 文件中的 `VITE_APP_BACKEND_URL` 环境变量。
+
+要连接到自定义后端服务器，请修改 `.env` 文件中的后端服务器URL：
+
+自定义后端URL的示例：
+```sh
+VITE_APP_BACKEND_URL=http://localhost:8000
+```
+
+更新 `.env` 文件后，重启前端服务器以应用更改。
+
+#### 运行前端应用程序
+
+1. 在localhost上提供热重载的服务
+   ```sh
+   npm run serve
+   ```
+   或者如果您使用Yarn
+   ```sh
+   yarn serve
+   ```
+
+2. 在您的网络浏览器中打开 `http://localhost:5173` 查看并与前端交互。（您可以在 `vite.config.ts` 文件中更改端口。）
+
+#### 构建生产环境
+
+要为生产环境构建前端，请使用构建脚本。这将创建一个包含所有优化用于部署的文件的 `dist` 文件夹。
+
+```sh
+npm run build
+```
+或者如果您使用Yarn
+```sh
+yarn build
+```
+
+构建完成后，您可以将 `dist` 文件夹部署到任何静态文件服务器或前端托管服务。
 
 ## 路线图
 
