@@ -125,11 +125,11 @@ VITE_APP_BACKEND_URL=http://localhost:8000
 
 1. 在localhost上提供热重载的服务
    ```sh
-   npm run serve
+   npm run dev
    ```
    或者如果您使用Yarn
    ```sh
-   yarn serve
+   yarn dev
    ```
 
 2. 在您的网络浏览器中打开 `http://localhost:5173` 查看并与前端交互。（您可以在 `vite.config.ts` 文件中更改端口。）

@@ -124,11 +124,11 @@ After updating the `.env` file, restart the frontend server to apply the changes
 
 1. Serve the application with hot reload at localhost
    ```sh
-   npm run serve
+   npm run dev
    ```
    or if you are using Yarn
    ```sh
-   yarn serve
+   yarn dev
    ```
 
 2. Open `http://localhost:5173` in your web browser to view and interact with the frontend.(You can change the port in the `vite.config.ts` file.)
