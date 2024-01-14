@@ -1,52 +1,53 @@
-# WallMaria 二次元图片搜索引擎
+# WallMaria ACG Image Search Engine
+[中文](README.zh.md)
 
-欢迎来到WallMaria 二次元图片搜索引擎的代码仓库！本搜索引擎专为动漫、漫画和游戏爱好者定制，提供一种高效直观的方式，帮助用户在网络上查找与二次元相关的图像。
+Welcome to the code repository for WallMaria, an ACG image search engine designed specifically for anime, manga, and game enthusiasts! This search engine provides an efficient and intuitive way to help users find ACG-related images on the internet.
 
-## 特性
+## Features
 
-- **文本搜索**：使用关键词、短语或描述来查找图像。
-- **图像特征搜索**：上传图像并根据视觉内容找到相似的图片。
-- **图像文本联合搜索**：上传图像并使用关键词、短语或描述来查找与图像相关的图像。
+- **Text Search**: Search for images using keywords, phrases, or descriptions.
+- **Image Feature Search**: Upload an image and find similar pictures based on visual content.
+- **Image Text Joint Search**: Upload an image and use keywords, phrases, or descriptions to find images related to the image.
 
-## 快速开始
+## Quick Start
 
-按照以下简单步骤，您可以在本地快速启动并运行项目。
+By following these simple steps, you can quickly start and run the project locally.
 
-### 前提条件
+### Prerequisites
 
-- Python 3.10 或更高版本
+- Python 3.10 or higher
 - MongoDB
 - Redis
 - Milvus
 
-### 安装
+### Installation
 
-1. 克隆仓库
+1. Clone the repository
    ```sh
    git clone https://github.com/ALiersEL/WallMaria.git
    ```
-2. 进入项目目录
+2. Enter the project directory
    ```sh
    cd WallMaria/wallmaria-backend
    ```
-3. 安装所需包
+3. Install the required packages
    ```sh
    pip install -r requirements.txt
    ```
-4. 根据config.json文件设置环境变量或直接使用配置文件。
+4. Set environment variables according to the config.json file or use the configuration file directly.
 
 
-### 运行应用
+### Run the Application
 
-1. 启动后端服务器
+1. Start the backend server
    ```sh
    uvicorn main:app --port 8000 --reload
    ```
-2. 在浏览器中访问 `http://localhost:8000` 以打开Web界面
+2. Visit `http://localhost:8000` in your browser to open the web interface
 
-## 配置
+## Configuration
 
-确保根据config.json文件配置您的服务。示例配置如下所示：
+Ensure your services are configured according to the config.json file. An example configuration is shown below:
 ```json
 {
   "mongo": {
@@ -69,27 +70,27 @@
   }
 }
 ```
-请将<your_password>, <your_host>和<your_checkpoint>替换为实际的密码、主机地址和检查点名称。
+Please replace <your_password>, <your_host>, and <your_checkpoint> with your actual password, host address, and checkpoint name.
 
-## 路线图
+## Roadmap
 
-有关计划的特性和已知问题，请查看[开放问题](https://github.com/ALiersEL/WallMaria/issues)。
+For planned features and known issues, see the [open issues](https://github.com/ALiersEL/WallMaria/issues).
 
-## 贡献
+## Contribution
 
-开源社区的贡献使其成为一个学习、启发和创造的绝佳场所。非常感谢您做出的任何贡献。
+The contributions of the open-source community make it an excellent place to learn, inspire, and create. Any contributions you make are greatly appreciated.
 
-1. Fork项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 发起Pull Request
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## 许可证
+## License
 
-该项目采用MIT许可证。有关更多信息，请查看`LICENSE`文件。
+This project is licensed under the MIT License. For more information, please see the `LICENSE` file.
 
-## 致谢
+## Acknowledgments
 
 - [CLIP](https://github.com/openai/clip)
 - [GradCache](https://github.com/luyug/GradCache)
